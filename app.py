@@ -481,7 +481,8 @@ def chat():
     body = request.get_json(silent=True) or {}
     provider = str(body.get("provider", "openrouter")).lower()
     providers = {
-        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"}
+        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"},
+        "grok": {"env":"", "url":"", "model":os.getenv("XAI_MODEL","grok-4-fast"), "name":"Grok by xAI"}
     }
     config = providers.get(provider)
     if not config:
@@ -587,6 +588,29 @@ def chat():
         except Exception:
             app.logger.exception("Groq fallback request failed")
             return jsonify({"error":"OpenRouter and Groq are both temporarily unreachable.","provider":"groq","fallback_used":True}), 502
+
+    if provider == "grok":
+        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
+        if not supabase_url or not proxy_token:
+            return jsonify({"error":"Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render Environment."}), 503
+        try:
+            result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy",
+                {"provider":"grok","path":"/chat/completions","method":"POST",
+                 "body":{"model":config["model"],"messages":messages,"temperature":0.7}},
+                {"x-zirro-proxy-token":proxy_token}, timeout=110)
+            answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
+            if isinstance(answer,list):
+                answer = "\\n".join(p.get("text","") for p in answer if isinstance(p,dict))
+            if not answer:
+                return jsonify({"error":result.get("error","Grok returned an empty response."),"provider":"grok"}), 502
+            return jsonify({"reply":answer,"model":result.get("model",config["model"]),"provider":"grok",
+                            "fallback_used":False,"web_search_used":False})
+        except urllib.error.HTTPError as exc:
+            return jsonify({"error":_provider_error(exc,"Supabase Grok proxy request failed.")}), 502
+        except Exception:
+            app.logger.exception("Supabase Grok proxy request failed")
+            return jsonify({"error":"Could not reach Grok through Supabase. Check that the Edge Function is deployed and its secrets are set."}), 502
 
     if not key:
         return groq_fallback("OPENROUTER_API_KEY is not configured")
