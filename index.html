@@ -567,8 +567,14 @@ body.navy-mode .main{background:rgba(3,10,20,.12)!important}
   <button id="generateVideo" class="media-primary">✦ Generate video</button><div id="videoStatus" class="media-status" aria-live="polite">Ready. Choose a prompt and model to begin.</div><div id="videoResult" class="media-result"></div>
 </div>
 <div class="media-studio hidden" id="musicPanel">
-  <div class="media-head"><div class="media-kicker">GENERATIVE MUSIC / KIE AI + SUNO</div><h2>Music Studio</h2><p>Create original instrumental music from a text description using Suno through Kie AI. Kie AI credits may be required.</p></div>
-  <label for="musicPrompt">Describe your music</label><textarea id="musicPrompt" class="media-input" rows="4" maxlength="2000" placeholder="Afrobeats instrumental, warm bass, bright percussion, uplifting melody, no vocals…"></textarea>
+  <div class="media-head"><div class="media-kicker">GENERATIVE MUSIC / KIE AI + SUNO</div><h2>Music Studio</h2><p>Create instrumental tracks, or add your own voice recording as source audio for an AI vocal-led song. Kie AI credits may be required. AI may transform the source vocal rather than reproduce it exactly.</p></div>
+  <label for="musicPrompt">Describe your music or how to transform your voice</label><textarea id="musicPrompt" class="media-input" rows="4" maxlength="2000" placeholder="Afrobeats, warm bass, bright percussion, uplifting melody…"></textarea>
+  <div class="voice-upload-card">
+    <label for="musicVoiceFile">🎙 Use your own voice recording (optional)</label>
+    <input id="musicVoiceFile" class="media-input" style="min-height:0;padding:12px" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm">
+    <div class="media-note">Upload a clear recording of your own voice, ideally with little background noise. MP3, WAV, M4A, OGG, or WebM; maximum 10 MB. The recording is stored privately in Supabase and a temporary link is used for generation.</div>
+    <div id="voiceUploadStatus" class="media-status" aria-live="polite">No voice recording selected. Leave this empty for instrumental music.</div>
+  </div>
   <div class="media-options"><label>Length<select id="musicDuration"><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></label></div>
   <button id="generateMusic" class="media-primary">♫ Generate music</button><div id="musicStatus" class="media-status" aria-live="polite">Ready. Describe a genre, mood, instruments, and tempo.</div><div id="musicResult" class="media-result"></div>
 </div>
@@ -707,9 +713,21 @@ $('#sendProxy').onclick=async()=>{
 };
 $('#generateMusic').onclick=async()=>{
   const prompt=$('#musicPrompt').value.trim();if(!prompt){toast('Describe the music first');return}
-  const btn=$('#generateMusic'),status=$('#musicStatus'),result=$('#musicResult');btn.disabled=true;result.replaceChildren();status.textContent='Submitting music job…';
+  const btn=$('#generateMusic'),status=$('#musicStatus'),result=$('#musicResult'),voiceFile=$('#musicVoiceFile').files[0],voiceStatus=$('#voiceUploadStatus');btn.disabled=true;result.replaceChildren();status.textContent='Preparing music job…';
   try{
-    const res=await fetch('/api/generate-music',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,client_id:generationClientId(),duration:Number($('#musicDuration').value)})});
+    let voice_url=null;
+    if(voiceFile){
+      if(voiceFile.size>10*1024*1024)throw new Error('Voice recording must be under 10 MB.');
+      voiceStatus.textContent='Uploading your voice recording securely to Supabase…';
+      const form=new FormData();form.append('voice',voiceFile);
+      const upload=await fetch('/api/music/upload-voice',{method:'POST',body:form});
+      const uploaded=await upload.json();
+      if(!upload.ok||!uploaded.ok)throw new Error(uploaded.error||'Voice upload failed.');
+      voice_url=uploaded.voice_url;
+      voiceStatus.textContent='Voice uploaded securely. Ready to create a vocal-led song.';
+    }
+    status.textContent=voice_url?'Submitting your voice-based music job…':'Submitting instrumental music job…';
+    const res=await fetch('/api/generate-music',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,client_id:generationClientId(),duration:Number($('#musicDuration').value),voice_url})});
     let data=await res.json();if(!res.ok||!data.ok)throw new Error((data.error||'Music request failed')+(data.hint?'\n'+data.hint:''));
     const id=data.prediction_id;if(!id)throw new Error('Music provider did not return a job ID.');
     status.textContent='Music job: '+data.status+' · ID: '+id;
