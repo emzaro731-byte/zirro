@@ -20,6 +20,10 @@
 2. Use the included `render.yaml` settings, or configure the start command as `python app.py`.
 3. In the Render service's **Environment** settings, add:
    - `OPENROUTER_API_KEY` — required for AI chat and provider-backed image generation.
+   - `OPENAI_API_KEY` — optional; enables ChatGPT/OpenAI API chat.
+   - `XAI_API_KEY` — optional; enables Grok chat.
+   - `GEMINI_API_KEY` — optional; enables Google Gemini chat.
+   - `PERPLEXITY_API_KEY` — optional; enables Perplexity API chat.
    - `TAVILY_API_KEY` — optional; enables live web search.
    - `OPENROUTER_MODEL` — optional; chat model override. Default: `openrouter/free`.
    - `OPENROUTER_IMAGE_MODEL` — optional; image generation model override. Default: `google/gemini-3.1-flash-image`.
@@ -36,6 +40,7 @@
 - `GET /api/plugins` — connector catalogue and safe configuration status.
 - `POST /api/plugins/<plugin_id>/test` — connector readiness test. OpenRouter and Tavily tests make a lightweight provider request; image and embedding checks only verify configuration to avoid billable generation.
 - `POST /api/chat` — AI chat; supports optional web search and supported attachments.
+  Send `provider` as `openrouter`, `openai`, `grok`, `gemini`, or `perplexity` to choose the configured provider.
 - `POST /api/search` — run Tavily web search. JSON body: `{"query":"your search query"}`.
 - `POST /api/generate-image` — image generation. JSON body: `{"prompt":"describe the image"}`.
 - `POST /api/embeddings` — create embeddings. JSON body: `{"input":["first text","second text"]}`.
