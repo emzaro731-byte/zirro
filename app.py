@@ -615,6 +615,36 @@ def chat():
         app.logger.warning("OpenRouter request failed (%s); trying Groq fallback", type(exc).__name__)
         return groq_fallback("OpenRouter network/request failure")
 
+
+@app.post("/api/provider-proxy")
+def provider_proxy():
+    """Forward a constrained provider request to Supabase; provider keys never reach this app."""
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
+    if not supabase_url or not proxy_token:
+        return jsonify({"ok": False, "error": "Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render Environment."}), 503
+    body = request.get_json(silent=True) or {}
+    provider = str(body.get("provider", "")).lower()
+    path = str(body.get("path", ""))
+    method = str(body.get("method", "POST")).upper()
+    if provider not in ("grok", "fal", "kie"):
+        return jsonify({"ok": False, "error": "Provider must be grok, fal, or kie."}), 400
+    if method not in ("GET", "POST"):
+        return jsonify({"ok": False, "error": "Only GET and POST are supported."}), 400
+    if not path or len(path) > 500 or ".." in path or "://" in path:
+        return jsonify({"ok": False, "error": "Invalid provider path."}), 400
+    payload = {"provider": provider, "path": path, "method": method, "body": body.get("body", {})}
+    try:
+        result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy", payload,
+            {"x-zirro-proxy-token": proxy_token}, timeout=115)
+        return jsonify(result)
+    except urllib.error.HTTPError as exc:
+        detail = _provider_error(exc, "Supabase provider proxy request failed.")
+        return jsonify({"ok": False, "error": detail}), exc.code if exc.code in (400, 401, 404, 429, 503) else 502
+    except Exception:
+        app.logger.exception("Supabase provider proxy request failed")
+        return jsonify({"ok": False, "error": "Could not reach the Supabase provider proxy."}), 502
+
 @app.errorhandler(413)
 def too_large(_):
     return jsonify({"error":"Upload too large. Keep total request under 12 MB."}), 413
