@@ -46,7 +46,8 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
-        "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),\n        "huggingface_embeddings_configured": bool(os.getenv("HF_TOKEN")),\n        "embedding_model": os.getenv("HF_EMBEDDING_MODEL", "Emma11122/embeddinggemma-2-bucket"),
+        "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
+        "huggingface_embeddings_configured": bool(os.getenv("HF_TOKEN")),\n        "embedding_model": os.getenv("HF_EMBEDDING_MODEL", "Emma11122/embeddinggemma-2-bucket"),
         "pdf_support": True})
 
 @app.post("/api/embeddings")
