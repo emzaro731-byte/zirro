@@ -45,12 +45,12 @@ Deno.serve(async (req) => {
     base = "https://queue.fal.run";
     secretName = "FAL_KEY";
     authScheme = "Key";
-    if (!/^\/[a-zA-Z0-9._/-]+$/.test(path) || !path.startsWith("/fal-ai/"))
+    if (!/^\/[a-zA-Z0-9._/-]+$/.test(routePath) || !routePath.startsWith("/fal-ai/"))
       return json({ error: "Only fal-ai model routes are allowed" }, 400);
   } else if (provider === "kie") {
     base = "https://api.kie.ai";
     secretName = "KIE_AI_API_KEY";
-    if (!path.startsWith("/api/v1/") || !/^\/[a-zA-Z0-9._/-]+$/.test(path))
+    if (!routePath.startsWith("/api/v1/") || !/^\/[a-zA-Z0-9._/-]+$/.test(routePath))
       return json({ error: "Only Kie AI /api/v1 routes are allowed" }, 400);
   } else {
     return json({ error: "Provider must be groq, fal, or kie" }, 400);
