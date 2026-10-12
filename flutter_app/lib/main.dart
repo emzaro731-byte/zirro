@@ -10,7 +10,6 @@ void main() => runApp(const ZirroApp());
 
 const _bg = Color(0xFF070A12);
 const _glass = Color(0x18FFFFFF);
-const _glassStrong = Color(0x25FFFFFF);
 const _stroke = Color(0x30FFFFFF);
 const _muted = Color(0xFF9CA9C2);
 const _violet = Color(0xFF9B8CFF);
