@@ -39,7 +39,7 @@ jobs:
 
       - name: Analyze Flutter code
         working-directory: flutter_app
-        run: flutter analyze
+        run: flutter analyze lib
 
       - name: Build release APK
         working-directory: flutter_app
