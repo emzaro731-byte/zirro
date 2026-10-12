@@ -46,6 +46,8 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "groq_fallback_configured": bool(os.getenv("GROQ_API_KEY")),
+        "chat_failover": True,
         "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image"),
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
@@ -303,7 +305,7 @@ def chat():
     supplied_key = body.get("api_key", "")
     if supplied_key is not None and not isinstance(supplied_key, str):
         return jsonify({"error":"API key must be a string."}), 400
-    key = (supplied_key or "").strip() or os.getenv(config["env"])
+    key = (supplied_key or "").strip() or os.getenv(config["env"], "")
     if len(key) > 500:
         return jsonify({"error":"API key is too long."}), 400
     # Missing primary key is handled by the Groq fallback below.
