@@ -1,0 +1,54 @@
+name: Build ZIRRO AI Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/build-flutter-android.yml"
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform project
+        working-directory: flutter_app
+        run: flutter create --platforms=android --org=com.zirro.ai --project-name=zirro_ai .
+
+      - name: Install dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Check Dart formatting
+        working-directory: flutter_app
+        run: dart format --output=none --set-exit-if-changed lib
+
+      - name: Analyze Flutter code
+        working-directory: flutter_app
+        run: flutter analyze
+
+      - name: Build release APK
+        working-directory: flutter_app
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zirro-ai-android-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
