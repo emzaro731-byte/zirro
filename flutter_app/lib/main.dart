@@ -1,11 +1,16 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 void main() => runApp(const ZirroApp());
 
-const _bg = Color(0xFF080B12);
-const _panel = Color(0xFF121824);
-const _line = Color(0xFF273144);
-const _accent = Color(0xFF8B7CFF);
+const _bg = Color(0xFF070A12);
+const _glass = Color(0x18FFFFFF);
+const _glassStrong = Color(0x25FFFFFF);
+const _stroke = Color(0x30FFFFFF);
+const _muted = Color(0xFF9CA9C2);
+const _violet = Color(0xFF9B8CFF);
+const _cyan = Color(0xFF71E5E0);
 
 class ZirroApp extends StatelessWidget {
   const ZirroApp({super.key});
@@ -17,29 +22,11 @@ class ZirroApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
+        useMaterial3: true,
         scaffoldBackgroundColor: _bg,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: _accent,
+          seedColor: _violet,
           brightness: Brightness.dark,
-          surface: _panel,
-        ),
-        useMaterial3: true,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: _panel,
-          hintStyle: const TextStyle(color: Color(0xFF8993A6)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: const BorderSide(color: _line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: const BorderSide(color: _line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: const BorderSide(color: _accent),
-          ),
         ),
       ),
       home: const ChatHome(),
@@ -78,9 +65,8 @@ class _ChatHomeState extends State<ChatHome> {
     setState(() {
       _messages.add(ChatMessage(text, fromUser: true));
       _messages.add(const ChatMessage(
-        'The Flutter interface is ready, but AI account authentication and '
-        'responses are not connected yet. This prototype does not send your '
-        'message to any AI provider.',
+        'This is a Liquid Glass interface preview. The AI engine is not '
+        'connected yet, so your message has not been sent to an AI service.',
         fromUser: false,
       ));
       _composer.clear();
@@ -89,112 +75,297 @@ class _ChatHomeState extends State<ChatHome> {
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
         );
       }
     });
   }
 
+  void _usePrompt(String prompt) {
+    _composer.text = prompt;
+    _composer.selection = TextSelection.collapsed(offset: prompt.length);
+    FocusScope.of(context).requestFocus(FocusNode());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _bg,
-        titleSpacing: 18,
-        title: Row(
-          children: [
-            Container(
-              height: 36,
-              width: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  colors: [_accent, Color(0xFF52D9D0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          const _LiquidBackdrop(),
+          SafeArea(
+            child: Column(
+              children: [
+                _topBar(),
+                Expanded(
+                  child: _messages.isEmpty ? _welcome() : _messageList(),
                 ),
-              ),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  color: Colors.white, size: 21),
+                _composerArea(),
+              ],
             ),
-            const SizedBox(width: 10),
-            const Text('ZIRRO AI',
-                style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: .4)),
-          ],
-        ),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _messages.isEmpty ? _welcome() : _messageList(),
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+      child: Row(
+        children: [
+          Container(
+            height: 43,
+            width: 43,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_violet, Color(0xFF7165D9), _cyan],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _violet.withValues(alpha: .28),
+                  blurRadius: 24,
+                  spreadRadius: -4,
+                ),
+              ],
             ),
-            _composerBar(),
-          ],
-        ),
+            child: const Icon(Icons.auto_awesome_rounded,
+                color: Colors.white, size: 23),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ZIRRO',
+                  style: TextStyle(
+                    fontSize: 18,
+                    letterSpacing: 2.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'AI STUDIO',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 9,
+                    letterSpacing: 2.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _GlassSurface(
+            radius: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.blur_on_rounded, size: 15, color: _cyan),
+                SizedBox(width: 6),
+                Text(
+                  'GLASS UI',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _welcome() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(26, 18, 26, 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              height: 76,
-              width: 76,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              height: 116,
+              width: 116,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: const LinearGradient(
-                  colors: [_accent, Color(0xFF52D9D0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _cyan.withValues(alpha: .22),
+                    _violet.withValues(alpha: .13),
+                    Colors.transparent,
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _accent.withValues(alpha: .2),
-                    blurRadius: 32,
-                    spreadRadius: 1,
+              ),
+              child: Center(
+                child: Container(
+                  height: 70,
+                  width: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFB5ACFF), _violet, Color(0xFF4BCAC8)],
+                    ),
+                    border: Border.all(color: Colors.white.withValues(alpha: .6)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _violet.withValues(alpha: .32),
+                        blurRadius: 35,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.auto_awesome_rounded,
+                      size: 34, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          const Center(
+            child: Text(
+              'A little more\npossibility.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 35,
+                height: 1.08,
+                letterSpacing: -1.3,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Center(
+            child: Text(
+              'Your creative space, wrapped in glass.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, fontSize: 14, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 25),
+          const Row(
+            children: [
+              Text(
+                'START WITH AN IDEA',
+                style: TextStyle(
+                  color: Color(0xFF8794AE),
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(child: Divider(color: _stroke, height: 1)),
+            ],
+          ),
+          const SizedBox(height: 13),
+          _promptTile(
+            icon: Icons.edit_note_rounded,
+            title: 'Write something',
+            subtitle: 'Stories, captions, and fresh ideas',
+            prompt: 'Help me write something creative',
+            tint: _violet,
+          ),
+          const SizedBox(height: 10),
+          _promptTile(
+            icon: Icons.code_rounded,
+            title: 'Build an app',
+            subtitle: 'Turn a concept into a clear plan',
+            prompt: 'Help me plan a mobile app',
+            tint: _cyan,
+          ),
+          const SizedBox(height: 10),
+          _promptTile(
+            icon: Icons.lightbulb_outline_rounded,
+            title: 'Explore an idea',
+            subtitle: 'Think it through, one step at a time',
+            prompt: 'Help me develop a new idea',
+            tint: const Color(0xFFFFC98A),
+          ),
+          const SizedBox(height: 17),
+          Center(
+            child: _GlassSurface(
+              radius: 20,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shield_outlined, color: _cyan, size: 14),
+                  SizedBox(width: 7),
+                  Text(
+                    'LOCAL PREVIEW  ·  NO ACCOUNTS CONNECTED',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 9,
+                      letterSpacing: .8,
+                    ),
                   ),
                 ],
               ),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  color: Colors.white, size: 36),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Your ideas, amplified.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'A fresh space to think, create, and explore.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF9CA8BB), fontSize: 15),
-            ),
-            const SizedBox(height: 28),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 9,
-              runSpacing: 9,
-              children: const [
-                _Suggestion(icon: Icons.edit_note_rounded, text: 'Write something'),
-                _Suggestion(icon: Icons.code_rounded, text: 'Build an app'),
-                _Suggestion(icon: Icons.lightbulb_outline, text: 'Explore an idea'),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Prototype mode · AI is not connected yet',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF69758A), fontSize: 12),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _promptTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String prompt,
+    required Color tint,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => _usePrompt(prompt),
+        child: _GlassSurface(
+          radius: 22,
+          padding: const EdgeInsets.all(15),
+          child: Row(
+            children: [
+              Container(
+                height: 45,
+                width: 45,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: tint.withValues(alpha: .22)),
+                ),
+                child: Icon(icon, color: tint, size: 23),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(subtitle,
+                        style: const TextStyle(color: _muted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_outward_rounded,
+                  color: Color(0xFF9DA9BF), size: 17),
+            ],
+          ),
         ),
       ),
     );
@@ -203,7 +374,7 @@ class _ChatHomeState extends State<ChatHome> {
   Widget _messageList() {
     return ListView.builder(
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
       itemCount: _messages.length,
       itemBuilder: (context, index) {
         final message = _messages[index];
@@ -215,60 +386,100 @@ class _ChatHomeState extends State<ChatHome> {
               maxWidth: MediaQuery.sizeOf(context).width * .84,
             ),
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-            decoration: BoxDecoration(
-              color: message.fromUser ? const Color(0xFF292449) : _panel,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: message.fromUser
-                    ? _accent.withValues(alpha: .35)
-                    : _line,
+            child: _GlassSurface(
+              radius: 22,
+              fill: message.fromUser
+                  ? const Color(0x2C9B8CFF)
+                  : const Color(0x20FFFFFF),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              child: Text(
+                message.text,
+                style: const TextStyle(height: 1.5, fontSize: 14),
               ),
             ),
-            child: Text(message.text, style: const TextStyle(height: 1.45)),
           ),
         );
       },
     );
   }
 
-  Widget _composerBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      decoration: const BoxDecoration(
-        color: _bg,
-        border: Border(top: BorderSide(color: Color(0xFF1B2331))),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+  Widget _composerArea() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 13),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _composer,
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              onSubmitted: (_) => _send(),
-              decoration: const InputDecoration(
-                hintText: 'Message ZIRRO...',
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-              ),
+          _GlassSurface(
+            radius: 28,
+            fill: const Color(0x2A171D2D),
+            padding: const EdgeInsets.fromLTRB(7, 7, 7, 7),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Add attachment (preview only)',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Attachments are not available in this preview.'),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_rounded, color: _muted),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _composer,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    onSubmitted: (_) => _send(),
+                    decoration: const InputDecoration(
+                      hintText: 'Ask ZIRRO anything...',
+                      hintStyle: TextStyle(color: Color(0xFF8995AD)),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.fromLTRB(4, 14, 4, 13),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  height: 46,
+                  width: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(19),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_violet, Color(0xFF7770E8), _cyan],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _violet.withValues(alpha: .25),
+                        blurRadius: 18,
+                        spreadRadius: -3,
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: _send,
+                    tooltip: 'Send message',
+                    icon: const Icon(Icons.arrow_upward_rounded,
+                        color: Colors.white, size: 21),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 9),
-          SizedBox(
-            height: 49,
-            width: 49,
-            child: FilledButton(
-              onPressed: _send,
-              style: FilledButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
-                ),
-              ),
-              child: const Icon(Icons.arrow_upward_rounded),
+          const SizedBox(height: 9),
+          const Text(
+            'ZIRRO PREVIEW  ·  AI RESPONSES ARE NOT ENABLED',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF68758E),
+              fontSize: 9,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -277,27 +488,111 @@ class _ChatHomeState extends State<ChatHome> {
   }
 }
 
-class _Suggestion extends StatelessWidget {
-  const _Suggestion({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
+class _GlassSurface extends StatelessWidget {
+  const _GlassSurface({
+    required this.child,
+    this.radius = 24,
+    this.padding = EdgeInsets.zero,
+    this.fill = _glass,
+  });
+
+  final Widget child;
+  final double radius;
+  final EdgeInsetsGeometry padding;
+  final Color fill;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: _stroke, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 17, color: _accent),
-          const SizedBox(width: 7),
-          Text(text, style: const TextStyle(fontSize: 12)),
-        ],
+    );
+  }
+}
+
+class _LiquidBackdrop extends StatelessWidget {
+  const _LiquidBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_bg, Color(0xFF10152A), Color(0xFF080E17)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -110,
+              right: -95,
+              child: _GlowOrb(
+                size: 290,
+                color: _violet.withValues(alpha: .25),
+              ),
+            ),
+            Positioned(
+              top: 260,
+              left: -150,
+              child: _GlowOrb(
+                size: 300,
+                color: _cyan.withValues(alpha: .13),
+              ),
+            ),
+            Positioned(
+              bottom: -160,
+              right: -80,
+              child: _GlowOrb(
+                size: 330,
+                color: const Color(0xFF5865D9).withValues(alpha: .18),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 55, sigmaY: 55),
+      child: Container(
+        height: size,
+        width: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: .02), Colors.transparent],
+          ),
+        ),
       ),
     );
   }
