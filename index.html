@@ -284,6 +284,54 @@ html,body{overscroll-behavior-y:auto}
 }
 @media(prefers-reduced-motion:reduce){.sidebar{scroll-behavior:auto}}
 
+
+/* ZIRRO Black & Electric Blue premium theme */
+:root{color-scheme:dark;--bg:#030712;--panel:#07111f;--panel2:#0a192c;--line:#173452;--muted:#8da7c3;--text:#f3f8ff;--purple:#238bff;--blue:#38bdf8;--mint:#67e8f9}
+body{background:radial-gradient(ellipse at 55% -20%,#0755a544,transparent 48%),radial-gradient(ellipse at 100% 60%,#003d7025,transparent 38%),#030712;background-attachment:fixed;color:var(--text)}
+.sidebar{background:linear-gradient(180deg,#06101ff5,#030712f5);border-right-color:#123354;box-shadow:inset -1px 0 #0b2740}
+.logo{background:linear-gradient(135deg,#38bdf8,#1677ff 58%,#0643a8);color:#fff;box-shadow:0 0 0 5px #168bff12,0 8px 32px #087bff4d}
+.newchat{background:linear-gradient(110deg,#168bff,#0757d7);color:#fff;border:1px solid #55b5ff55;box-shadow:0 8px 28px #006dff30}
+.nav button{color:#9ab2cd}
+.nav button.active,.nav button:hover{background:linear-gradient(100deg,#087cff25,#00b7ff0a);border-color:#168bff42;color:#fff}
+.nav button.active{box-shadow:inset 3px 0 #168bff}
+.topbar{background:#030712d9;border-bottom-color:#12304b}
+.modelpill{background:#071526e8;border-color:#19466b;color:#d7eaff;box-shadow:inset 0 1px #ffffff08}
+.dot{background:#38bdf8;box-shadow:0 0 11px #168bff}
+.ghost{border-color:#1a3a58;background:#071323;color:#c8e1fa}
+.ghost:hover,.toolbtn:hover{background:#0b2540;border-color:#238bff}
+.eyebrow{color:#53baff}
+.hero h1 span{background:linear-gradient(90deg,#e5f5ff,#42b8ff,#1677ff);background-clip:text;color:transparent}
+.orb{background:radial-gradient(circle at 28% 18%,#c7f0ff,#38bdf8 35%,#1677ff 68%,#062c80);box-shadow:0 0 0 10px #168bff0c,0 12px 70px #087bff55}
+.orb:after{text-shadow:0 2px 25px #fff}
+.suggestion{background:linear-gradient(145deg,#0b1b2d,#050d19);border-color:#153958;box-shadow:inset 0 1px #ffffff08,0 12px 30px #0002}
+.suggestion:after{background:#168bff24}
+.suggestion:hover{border-color:#168bff99;background:linear-gradient(145deg,#0d2944,#071321);box-shadow:0 12px 34px #006dff16}
+.sicon{background:#087cff1b;border-color:#168bff3b}
+.message.user .bubble{background:linear-gradient(135deg,#0755a83d,#087cff1c);border-color:#168bff4a}
+.miniavatar,.avatar{background:linear-gradient(135deg,#60d8ff,#1677ff 70%,#063b9c);color:#fff;box-shadow:0 4px 18px #087bff30}
+.composerwrap{background:linear-gradient(transparent,#030712 24%)}
+.composer{background:#061323f5;border-color:#1a456a;box-shadow:0 15px 55px #0009,0 0 0 3px #087bff0b}
+.composer:focus-within{border-color:#238bff;box-shadow:0 0 0 3px #168bff1c,0 12px 45px #0008}
+.composer textarea{color:#f3f8ff}
+.toolbtn{border-color:#173652;background:#091a2d;color:#a9d8ff}
+.toolbtn.on{background:#075bb6;color:#fff;border-color:#38bdf8}
+.send{background:linear-gradient(135deg,#38bdf8,#1677ff 72%,#0646b8);color:#fff;box-shadow:0 5px 18px #087bff42}
+.message-actions button{border-color:#173652;background:#071526;color:#a9c3df}
+.message-actions button:hover{border-color:#238bff}
+.featurebar span{border-color:#163552;background:#071526;color:#a9c7e6}
+.status{color:#67e8f9}
+.toast{background:#071a2d;border-color:#1d5685;color:#e8f5ff;box-shadow:0 12px 40px #0008}
+.authmodal{background:#010611cc}
+.authcard{border-color:#1d4a70;background:linear-gradient(145deg,#0c2036f7,#040b17f8);box-shadow:0 25px 100px #000b,0 0 50px #087bff10}
+.authcard input{border-color:#1b3b59;background:#030b17}
+.authcard input:focus{border-color:#238bff;box-shadow:0 0 0 3px #168bff1a}
+.authswitch{color:#60bdff}
+.history button{color:#91abc8}
+.history button:hover{background:#087cff17;color:#fff}
+.message.assistant .bubble pre{background:#030b16;border-color:#173652}
+@media(max-width:720px){.sidebar{background:linear-gradient(180deg,#06101ffb,#030712fb);border-right-color:#16456b}.topbar{background:#030712e8}.suggestion{min-height:115px}}
+@media(prefers-reduced-motion:reduce){.orb{animation:none}.suggestion,.newchat,.send{transition:none}}
+
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
