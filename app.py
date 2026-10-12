@@ -47,7 +47,7 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
-        "groq_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
+        "groq_configured": bool(os.getenv("GROQ_API_KEY", "").strip() or _kie_proxy_configured()),
         "chat_failover": False,
         "image_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
@@ -80,7 +80,7 @@ def plugins():
     """Return safe plugin metadata and configuration state; never expose secret values."""
     health = {
         "openai": bool(os.getenv("OPENAI_API_KEY")),
-        "groq": bool(os.getenv("SUPABASE_URL") and os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN")),
+        "groq": bool(os.getenv("GROQ_API_KEY", "").strip() or (os.getenv("SUPABASE_URL") and os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN"))),
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
@@ -120,9 +120,9 @@ def test_plugin(plugin_id):
     if plugin_id == "groq":
         token = os.getenv("GROQ_API_KEY", "").strip()
         if not token and not _kie_proxy_configured():
-            return jsonify({"ok": False, "status": "needs_setup", "message": "Configure GROQ_API_KEY as a Supabase Edge Function secret and set SUPABASE_URL plus ZIRRO_SUPABASE_PROXY_TOKEN in Render."}), 503
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Add GROQ_API_KEY to your Render Environment, then redeploy."}), 503
         try:
-            if _kie_proxy_configured():
+            if not token and _kie_proxy_configured():
                 _supabase_provider_request("groq", "/models", "GET", timeout=20)
             else:
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": "Bearer " + token})
@@ -634,11 +634,11 @@ def chat():
 
     payload = {"model":config["model"],"messages":messages,"temperature":0.7}
     if not key and not (provider == "groq" and _kie_proxy_configured()):
-        return jsonify({"error":"Configure "+config["env"]+" in Render, or set GROQ_API_KEY as a Supabase Edge Function secret and configure the Supabase proxy."}), 503
+        return jsonify({"error":"Add "+config["env"]+" to your Render Environment and redeploy."}), 503
     headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI",
                "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")}
     try:
-        if provider == "groq" and _kie_proxy_configured():
+        if provider == "groq" and not key and _kie_proxy_configured():
             result = _supabase_provider_request("groq", "/chat/completions", "POST", payload, timeout=100)
         else:
             result = post_json(config["url"], payload, headers, timeout=100)
