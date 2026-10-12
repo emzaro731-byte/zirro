@@ -13,3 +13,7 @@ services:
         value: openrouter/free
       - key: TAVILY_API_KEY
         sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: HF_EMBEDDING_MODEL
+        value: Emma11122/embeddinggemma-2-bucket
