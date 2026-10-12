@@ -49,6 +49,17 @@
 
 An API key does not mean image generation is free. Image output requires a model that actually supports image generation and an OpenRouter/provider account with sufficient available credits. If you receive an insufficient-balance or credit error, review the provider's current model pricing and account balance, or choose another supported provider/model. ZIRRO reports provider hints in the chat where available; it cannot bypass provider billing or quotas.
 
+## Daily image, video, and music limits
+
+The migration at `supabase/migrations/20261012_daily_generation_limits.sql` creates the persistent quota table and RPC used by the Flask API. To enable the 3-per-day limit:
+
+1. Open the Supabase project SQL Editor for project `vihbsfrwnslnmheowkhy` and run the full migration SQL from that file.
+2. In Render → the ZIRRO web service → Environment, set `SUPABASE_URL=https://vihbsfrwnslnmheowkhy.supabase.co` and `SUPABASE_SERVICE_ROLE_KEY` to the project's **service_role secret key**. Keep this key server-side only; never put it in browser code or commit it to GitHub.
+3. Save changes and redeploy the Render service.
+4. Verify `GET /api/health` reports `supabase_quota_storage_configured: true`.
+
+The quota is 3 image generations, 3 video generations, and 3 music generations per client per UTC day, resetting at 00:00 UTC. Generation still requires valid OpenRouter/Kie AI credentials and sufficient provider credits.
+
 ## Local development
 
 Python 3.10+ recommended.
