@@ -375,14 +375,15 @@ def _kie_wait_for_result(task_id, attempts=35, delay=2):
 def generate_image():
     """Try OpenRouter image generation first, then fall back to Kie AI."""
     body = request.get_json(silent=True) or {}
-    allowed, quota = _check_generation_limit("image", body)
-    if not allowed:
-        return jsonify(quota), 429
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
         return jsonify({"error": "Describe the image you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
+    allowed, quota = _check_generation_limit("image", body)
+    if not allowed:
+        return jsonify(quota), 429
+
 
     openrouter_error = "OpenRouter image generation is not configured."
     token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY", "").strip()
@@ -462,9 +463,6 @@ def video_models():
 @app.post("/api/generate-video")
 def generate_video():
     body = request.get_json(silent=True) or {}
-    allowed, quota = _check_generation_limit("video", body)
-    if not allowed:
-        return jsonify(quota), 429
     if not _kie_key():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
@@ -472,6 +470,10 @@ def generate_video():
         return jsonify({"ok": False, "error": "Describe the video you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"ok": False, "error": "Prompt must be 4,000 characters or fewer."}), 413
+    allowed, quota = _check_generation_limit("video", body)
+    if not allowed:
+        return jsonify(quota), 429
+
     duration = 10 if str(body.get("duration", 5)) == "10" else 5
     resolution = str(body.get("resolution", "720p"))
     if resolution not in ("720p", "1080p"):
@@ -515,9 +517,6 @@ def video_status(job_id):
 @app.post("/api/generate-music")
 def generate_music():
     body = request.get_json(silent=True) or {}
-    allowed, quota = _check_generation_limit("music", body)
-    if not allowed:
-        return jsonify(quota), 429
     if not _kie_key():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
@@ -525,6 +524,10 @@ def generate_music():
         return jsonify({"ok": False, "error": "Describe the music you want to create."}), 400
     if len(prompt) > 2000:
         return jsonify({"ok": False, "error": "Music prompt must be 2,000 characters or fewer."}), 413
+    allowed, quota = _check_generation_limit("music", body)
+    if not allowed:
+        return jsonify(quota), 429
+
     try:
         duration = max(10, min(int(body.get("duration", 30)), 60))
     except (TypeError, ValueError):
