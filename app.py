@@ -520,6 +520,69 @@ def video_status(job_id):
         return jsonify({"ok": False, "error": str(exc)[:350]}), 502
 
 
+@app.post("/api/music/upload-voice")
+def upload_music_voice():
+    """Store a user-provided voice sample privately and return a short-lived signed URL."""
+    if not (os.getenv("SUPABASE_URL", "").strip() and os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()):
+        return jsonify({"ok": False, "error": "Voice uploads need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Render Environment."}), 503
+    audio = request.files.get("voice")
+    if not audio or not audio.filename:
+        return jsonify({"ok": False, "error": "Choose a voice recording first."}), 400
+    allowed = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+               ".mp4": "audio/mp4", ".webm": "audio/webm", ".ogg": "audio/ogg", ".oga": "audio/ogg"}
+    from werkzeug.utils import secure_filename
+    filename = secure_filename(audio.filename)
+    ext = os.path.splitext(filename.lower())[1]
+    if ext not in allowed:
+        return jsonify({"ok": False, "error": "Use an MP3, WAV, M4A, OGG, or WebM audio recording."}), 415
+    raw = audio.read()
+    if not raw or len(raw) > 10 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "Voice recordings must be under 10 MB."}), 413
+    import uuid
+    base = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    bucket = "zirro-voice-samples"
+    headers = {"Authorization": "Bearer " + key, "apikey": key, "Content-Type": "application/json"}
+    try:
+        # Create a private bucket on first use. A conflict means it already exists.
+        create_req = urllib.request.Request(base + "/storage/v1/bucket",
+            data=json.dumps({"id": bucket, "name": bucket, "public": False, "file_size_limit": 10485760,
+                             "allowed_mime_types": list(allowed.values())}).encode(),
+            headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(create_req, timeout=15) as response:
+                response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (400, 409):
+                raise
+        object_path = str(uuid.uuid4()) + ext
+        upload_headers = {"Authorization": "Bearer " + key, "apikey": key,
+                          "Content-Type": allowed[ext], "x-upsert": "false"}
+        upload_req = urllib.request.Request(base + "/storage/v1/object/" + bucket + "/" + object_path,
+            data=raw, headers=upload_headers, method="POST")
+        with urllib.request.urlopen(upload_req, timeout=30) as response:
+            response.read()
+        sign_req = urllib.request.Request(base + "/storage/v1/object/sign/" + bucket + "/" + object_path,
+            data=json.dumps({"expiresIn": 3600}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(sign_req, timeout=15) as response:
+            signed = json.loads(response.read().decode())
+        signed_path = signed.get("signedURL") or signed.get("signedUrl")
+        if not signed_path:
+            raise RuntimeError("Supabase did not return a signed audio URL.")
+        if signed_path.startswith("http://") or signed_path.startswith("https://"):
+            signed_url = signed_path
+        else:
+            signed_url = base + "/storage/v1" + (signed_path if signed_path.startswith("/") else "/" + signed_path)
+        return jsonify({"ok": True, "voice_url": signed_url, "expires_in": 3600,
+                        "message": "Voice sample uploaded securely. The temporary link expires in one hour."}), 201
+    except urllib.error.HTTPError as exc:
+        app.logger.exception("Voice sample upload failed")
+        return jsonify({"ok": False, "error": "Could not securely upload the voice sample to Supabase (HTTP " + str(exc.code) + "). Check Storage availability and the service-role key."}), 502
+    except Exception:
+        app.logger.exception("Voice sample upload failed")
+        return jsonify({"ok": False, "error": "Voice upload failed. Check Supabase Storage configuration and try again."}), 502
+
+
 @app.post("/api/generate-music")
 def generate_music():
     body = request.get_json(silent=True) or {}
@@ -535,10 +598,21 @@ def generate_music():
     except (TypeError, ValueError):
         duration = 30
     title = str(body.get("title") or prompt[:70]).strip()[:80] or "ZIRRO AI Music"
-    task_input = {"custom_mode": True, "instrumental": True, "model": "V6",
-                  "style": prompt[:1000], "title": title, "duration": duration}
+    voice_url = str(body.get("voice_url") or "").strip()
+    if voice_url and not voice_url.startswith("https://"):
+        return jsonify({"ok": False, "error": "Voice audio must be uploaded through the ZIRRO voice upload control."}), 400
+    if voice_url:
+        # Use the user's own recording as the source audio for a vocal-led cover.
+        # Kie/Suno may transform the vocal; this is not a promise of exact voice cloning.
+        task_input = {"upload_url": voice_url, "prompt": prompt[:500], "custom_mode": False,
+                      "instrumental": False, "model": "V6"}
+        task_model = "ai-music-api/upload-and-cover-audio"
+    else:
+        task_input = {"custom_mode": True, "instrumental": True, "model": "V6",
+                      "style": prompt[:1000], "title": title, "duration": duration}
+        task_model = "ai-music-api/generate"
     try:
-        task_id = _kie_create_task("ai-music-api/generate", task_input, timeout=60)
+        task_id = _kie_create_task(task_model, task_input, timeout=60)
         return jsonify({"ok": True, "prediction_id": task_id, "status": "waiting",
                         "message": "Music submitted through Kie AI / Suno."}), 202
     except urllib.error.HTTPError as exc:
