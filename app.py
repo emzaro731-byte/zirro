@@ -56,6 +56,10 @@ def health():
 
 PLUGIN_CATALOG = [
     {"id": "openrouter", "name": "OpenRouter AI", "type": "connector", "feature": "chat", "env": "OPENROUTER_API_KEY"},
+    {"id": "openai", "name": "ChatGPT / OpenAI", "type": "connector", "feature": "chat", "env": "OPENAI_API_KEY"},
+    {"id": "grok", "name": "Grok by xAI", "type": "connector", "feature": "chat", "env": "XAI_API_KEY"},
+    {"id": "gemini", "name": "Google Gemini", "type": "connector", "feature": "chat", "env": "GEMINI_API_KEY"},
+    {"id": "perplexity", "name": "Perplexity AI", "type": "connector", "feature": "chat", "env": "PERPLEXITY_API_KEY"},
     {"id": "tavily", "name": "Tavily Web Search", "type": "connector", "feature": "search", "env": "TAVILY_API_KEY"},
     {"id": "imagegen", "name": "Image Generation", "type": "plugin", "feature": "image", "env": "OPENROUTER_API_KEY"},
     {"id": "documents", "name": "Document Intelligence", "type": "plugin", "feature": "documents", "env": None},
@@ -70,6 +74,10 @@ def plugins():
     """Return safe plugin metadata and configuration state; never expose secret values."""
     health = {
         "openrouter": bool(os.getenv("OPENROUTER_API_KEY")),
+        "openai": bool(os.getenv("OPENAI_API_KEY")),
+        "grok": bool(os.getenv("XAI_API_KEY")),
+        "gemini": bool(os.getenv("GEMINI_API_KEY")),
+        "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
         "imagegen": bool(os.getenv("OPENROUTER_API_KEY")),
         "documents": True,
@@ -100,6 +108,29 @@ def test_plugin(plugin_id):
     plugin = known.get(plugin_id)
     if not plugin:
         return jsonify({"ok": False, "error": "Unknown plugin."}), 404
+    provider_checks = {
+        "openai": ("OPENAI_API_KEY", "https://api.openai.com/v1/models", "ChatGPT / OpenAI"),
+        "grok": ("XAI_API_KEY", "https://api.x.ai/v1/models", "Grok / xAI"),
+        "gemini": ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/models", "Google Gemini"),
+        "perplexity": ("PERPLEXITY_API_KEY", "https://api.perplexity.ai/chat/completions", "Perplexity AI"),
+    }
+    if plugin_id in provider_checks:
+        env_name, url, provider_name = provider_checks[plugin_id]
+        token = os.getenv(env_name)
+        if not token:
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Add " + env_name + " in your Render Environment settings, then redeploy."}), 503
+        try:
+            if plugin_id == "perplexity":
+                req = urllib.request.Request(url, data=json.dumps({"model":"sonar","messages":[{"role":"user","content":"Reply with OK"}],"max_tokens":2}).encode(), headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"}, method="POST")
+            else:
+                req = urllib.request.Request(url, headers={"Authorization":"Bearer "+token})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                if 200 <= response.status < 300:
+                    return jsonify({"ok": True, "status": "connected", "message": provider_name + " API responded successfully."})
+        except urllib.error.HTTPError as exc:
+            return jsonify({"ok": False, "status": "error", "message": provider_name + " returned HTTP " + str(exc.code) + ". Check the API key, provider access, and account limits."}), 502
+        except Exception:
+            return jsonify({"ok": False, "status": "error", "message": "Could not reach " + provider_name + ". Try again shortly."}), 502
     if plugin_id == "openrouter":
         token = os.getenv("OPENROUTER_API_KEY")
         if not token:
