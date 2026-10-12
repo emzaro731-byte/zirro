@@ -599,8 +599,8 @@ def provider_proxy():
     provider = str(body.get("provider", "")).lower()
     path = str(body.get("path", ""))
     method = str(body.get("method", "POST")).upper()
-    if provider not in ("groq", "fal", "kie"):
-        return jsonify({"ok": False, "error": "Provider must be groq, fal, or kie."}), 400
+    if provider not in ("fal", "kie"):
+        return jsonify({"ok": False, "error": "Provider must be fal or kie."}), 400
     if method not in ("GET", "POST"):
         return jsonify({"ok": False, "error": "Only GET and POST are supported."}), 400
     if not path or len(path) > 500 or ".." in path or "://" in path:
