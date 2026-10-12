@@ -1,4 +1,4 @@
-import base64, io, json, os, urllib.request, urllib.error
+import base64, io, json, os, sqlite3, hashlib, urllib.request, urllib.error
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -247,6 +247,37 @@ def embeddings():
         app.logger.exception("OpenRouter embeddings request failed")
         return jsonify({"error": "Could not reach OpenRouter embeddings. Try again shortly.", "model": model}), 502
 
+
+GENERATION_DAILY_LIMIT = 3
+GENERATION_DB = os.getenv("GENERATION_LIMIT_DB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "zirro_generation_limits.sqlite3"))
+
+def _check_generation_limit(kind, body):
+    client_id = str((body or {}).get("client_id", "")).strip()
+    if not (12 <= len(client_id) <= 100 and all(c.isalnum() or c in "-_." for c in client_id)):
+        forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        client_id = "ip:" + (forwarded or request.remote_addr or "unknown")
+    key = hashlib.sha256((kind + ":" + client_id).encode()).hexdigest()
+    from datetime import datetime, timezone
+    day = datetime.now(timezone.utc).date().isoformat()
+    try:
+        with sqlite3.connect(GENERATION_DB, timeout=10) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS generation_daily_usage (day TEXT NOT NULL, kind TEXT NOT NULL, client_key TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day, kind, client_key))")
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT used FROM generation_daily_usage WHERE day=? AND kind=? AND client_key=?", (day, kind, key)).fetchone()
+            used = int(row[0]) if row else 0
+            if used >= 3:
+                db.rollback()
+                return False, {"ok": False, "error": f"Daily limit reached: 3 {kind} generations per day. Try again after 00:00 UTC.", "limit": 3, "used": used, "remaining": 0, "resets_at": "00:00 UTC"}
+            if row:
+                db.execute("UPDATE generation_daily_usage SET used=used+1 WHERE day=? AND kind=? AND client_key=?", (day, kind, key))
+            else:
+                db.execute("INSERT INTO generation_daily_usage(day,kind,client_key,used) VALUES(?,?,?,1)", (day, kind, key))
+            db.commit()
+            return True, {"limit": 3, "used": used + 1, "remaining": 2 - used, "resets_at": "00:00 UTC"}
+    except sqlite3.Error:
+        app.logger.exception("Generation limit storage error")
+        return False, {"ok": False, "error": "Could not verify the daily generation limit. Please try again shortly."}
+
 def _provider_error(exc, fallback):
     try:
         data = json.loads(exc.read().decode())
@@ -344,6 +375,9 @@ def _kie_wait_for_result(task_id, attempts=35, delay=2):
 def generate_image():
     """Try OpenRouter image generation first, then fall back to Kie AI."""
     body = request.get_json(silent=True) or {}
+    allowed, quota = _check_generation_limit("image", body)
+    if not allowed:
+        return jsonify(quota), 429
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
         return jsonify({"error": "Describe the image you want to create."}), 400
@@ -428,6 +462,9 @@ def video_models():
 @app.post("/api/generate-video")
 def generate_video():
     body = request.get_json(silent=True) or {}
+    allowed, quota = _check_generation_limit("video", body)
+    if not allowed:
+        return jsonify(quota), 429
     if not _kie_key():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
@@ -478,6 +515,9 @@ def video_status(job_id):
 @app.post("/api/generate-music")
 def generate_music():
     body = request.get_json(silent=True) or {}
+    allowed, quota = _check_generation_limit("music", body)
+    if not allowed:
+        return jsonify(quota), 429
     if not _kie_key():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
