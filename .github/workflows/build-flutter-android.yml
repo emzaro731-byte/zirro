@@ -33,6 +33,10 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
+      - name: Apply safe Dart lint fixes
+        working-directory: flutter_app
+        run: dart fix --apply
+
       - name: Check Dart formatting
         working-directory: flutter_app
         run: dart format lib
