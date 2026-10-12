@@ -46,24 +46,23 @@ def home():
 @app.get("/api/health")
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
-        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "provider_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
         "groq_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
         "chat_failover": False,
-        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
+        "image_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_model": "runway",
         "music_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "music_provider": "Kie AI / Suno",
         "supabase_quota_storage_configured": bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
-        "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image") + " (Kie AI fallback enabled)",
+        "image_model": "gpt-image-2-text-to-image (Kie AI)",
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
-        "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
-        "embedding_model": os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+        "embeddings_configured": False,
+        "embedding_model": None,
         "pdf_support": True, "image_upload": True, "video_upload": "sampled_frames", "text_file_upload": True})
 
 
 PLUGIN_CATALOG = [
-    {"id": "openrouter", "name": "OpenRouter AI", "type": "connector", "feature": "chat", "env": "OPENROUTER_API_KEY"},
     {"id": "openai", "name": "ChatGPT / OpenAI", "type": "connector", "feature": "chat", "env": "OPENAI_API_KEY"},
     {"id": "groq", "name": "Groq", "type": "connector", "feature": "chat", "env": "GROQ_API_KEY"},
     {"id": "gemini", "name": "Google Gemini", "type": "connector", "feature": "chat", "env": "GEMINI_API_KEY"},
@@ -72,7 +71,6 @@ PLUGIN_CATALOG = [
     {"id": "imagegen", "name": "Image Generation", "type": "plugin", "feature": "image", "env": "KIE_AI_API_KEY"},
     {"id": "documents", "name": "Document Intelligence", "type": "plugin", "feature": "documents", "env": None},
     {"id": "voice", "name": "Voice Tools", "type": "plugin", "feature": "browser", "env": None},
-    {"id": "embeddings", "name": "Semantic Search", "type": "connector", "feature": "embeddings", "env": "OPENROUTER_API_KEY"},
     {"id": "custom-api", "name": "Custom API Endpoint", "type": "connector", "feature": "planned", "env": None},
     {"id": "prompt-library", "name": "Prompt Library", "type": "plugin", "feature": "local", "env": None},
 ]
@@ -81,16 +79,14 @@ PLUGIN_CATALOG = [
 def plugins():
     """Return safe plugin metadata and configuration state; never expose secret values."""
     health = {
-        "openrouter": bool(os.getenv("OPENROUTER_API_KEY")),
         "openai": bool(os.getenv("OPENAI_API_KEY")),
         "groq": bool(os.getenv("SUPABASE_URL") and os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN")),
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
-        "imagegen": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
+        "imagegen": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "documents": True,
         "voice": True,
-        "embeddings": bool(os.getenv("OPENROUTER_API_KEY")),
         "custom-api": False,
         "prompt-library": True,
     }
@@ -416,7 +412,7 @@ def _kie_wait_for_result(task_id, attempts=35, delay=2):
 
 @app.post("/api/generate-image")
 def generate_image():
-    """Try OpenRouter image generation first, then fall back to Kie AI."""
+    """Generate images exclusively through Kie AI."""
     body = request.get_json(silent=True) or {}
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
@@ -426,42 +422,8 @@ def generate_image():
     allowed, quota = _check_generation_limit("image", body)
     if not allowed:
         return jsonify(quota), int(quota.get("http_status", 429))
-
-
-    openrouter_error = "OpenRouter image generation is not configured."
-    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY", "").strip()
-    if token:
-        model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image")
-        try:
-            result = post_json("https://openrouter.ai/api/v1/chat/completions", {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "modalities": ["image", "text"]
-            }, {
-                "Authorization": "Bearer " + token,
-                "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
-                "X-Title": "ZIRRO AI Image Studio"
-            }, timeout=90)
-            message = result.get("choices", [{}])[0].get("message", {})
-            images = message.get("images") or []
-            image_url = (images[0].get("image_url") or {}).get("url") if images and isinstance(images[0], dict) else None
-            if not image_url and isinstance(message.get("content"), list):
-                for part in message["content"]:
-                    if isinstance(part, dict) and part.get("type") in ("image_url", "image"):
-                        image_url = (part.get("image_url") or {}).get("url") or part.get("url")
-                        if image_url:
-                            break
-            if isinstance(image_url, str) and image_url.startswith(("data:image/", "https://", "http://")):
-                return jsonify({"ok": True, "image": image_url, "model": result.get("model", model), "provider": "OpenRouter", "fallback_used": False, "quota": quota})
-            openrouter_error = "OpenRouter did not return an image. " + str(message.get("content", ""))[:180]
-        except urllib.error.HTTPError as exc:
-            openrouter_error = "OpenRouter error: " + _provider_error(exc, "Image generation request failed.")
-        except Exception as exc:
-            app.logger.warning("OpenRouter image generation failed; trying Kie AI: %s", exc)
-            openrouter_error = str(exc)[:250]
-
     if not _kie_key() and not _kie_proxy_configured():
-        return jsonify({"error": openrouter_error, "hint": "Add KIE_AI_API_KEY in Render Environment to enable automatic Kie AI fallback."}), 502
+        return jsonify({"error": "Kie AI is not configured.", "hint": "Configure KIE_AI_API_KEY in Supabase secrets or Render."}), 503
     try:
         task_id = _kie_create_task("gpt-image-2-text-to-image", {
             "prompt": prompt,
@@ -469,13 +431,13 @@ def generate_image():
         })
         result = _kie_wait_for_result(task_id, attempts=40, delay=2)
         if result["status"] == "success" and result["urls"]:
-            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "fallback_used": True, "task_id": task_id, "quota": quota})
-        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "fallback_used": True, "quota": quota}), 202
+            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "task_id": task_id, "quota": quota})
+        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "quota": quota}), 202
     except urllib.error.HTTPError as exc:
-        return jsonify({"error": openrouter_error, "fallback_error": _provider_error(exc, "Kie AI image generation failed.")}), 502
+        return jsonify({"error": _provider_error(exc, "Kie AI image generation failed.")}), 502
     except Exception as exc:
-        app.logger.exception("Kie AI image fallback failed")
-        return jsonify({"error": openrouter_error, "fallback_error": str(exc)[:350], "hint": "Check KIE_AI_API_KEY, Kie AI credits, and the selected model's availability."}), 502
+        app.logger.exception("Kie AI image generation failed")
+        return jsonify({"error": str(exc)[:350], "hint": "Check Kie AI credentials, credits, and model availability."}), 502
 
 
 @app.get("/api/image/status/<task_id>")
@@ -610,14 +572,13 @@ def music_status(prediction_id):
 @app.post("/api/chat")
 def chat():
     body = request.get_json(silent=True) or {}
-    provider = str(body.get("provider", "openrouter")).lower()
+    provider = str(body.get("provider", "groq")).lower()
     providers = {
-        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"},
         "groq": {"env":"GROQ_API_KEY","url":"https://api.groq.com/openai/v1/chat/completions","model":os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"),"name":"Groq"}
     }
     config = providers.get(provider)
     if not config:
-        return jsonify({"error":"This provider has been removed from ZIRRO AI. Please use the configured ZIRRO AI engine."}), 400
+        return jsonify({"error":"Unsupported provider. ZIRRO uses Groq for chat."}), 400
     # Per-user API keys are accepted for this request only; they are not stored.
     supplied_key = body.get("api_key", "")
     if supplied_key is not None and not isinstance(supplied_key, str):
