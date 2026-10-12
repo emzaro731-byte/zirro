@@ -495,7 +495,7 @@ def chat():
     provider = str(body.get("provider", "openrouter")).lower()
     providers = {
         "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"},
-        "groq": {"env":"", "url":"", "model":os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"), "name":"Groq"}
+        "groq": {"env":"GROQ_API_KEY","url":"https://api.groq.com/openai/v1/chat/completions","model":os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"),"name":"Groq"}
     }
     config = providers.get(provider)
     if not config:
@@ -561,72 +561,8 @@ def chat():
     messages.append({"role":"user","content":content or message})
 
     payload = {"model":config["model"],"messages":messages,"temperature":0.7}
-    def groq_fallback(reason):
-        groq_key = os.getenv("GROQ_API_KEY", "").strip()
-        if not groq_key:
-            return jsonify({"error":"OpenRouter is unavailable and Groq fallback is not configured. Add GROQ_API_KEY in Render Environment.","provider":"openrouter","fallback_available":False}), 502
-        groq_messages = []
-        for msg in messages:
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                text_parts = []
-                for part in content:
-                    if part.get("type") == "text":
-                        text_parts.append(part.get("text", ""))
-                    elif part.get("type") == "image_url":
-                        text_parts.append("[Image/video frame attached; the default Groq fallback model cannot inspect it.]")
-                content = "\n".join(text_parts)
-            groq_messages.append({"role":msg.get("role","user"),"content":content})
-        groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-        try:
-            result = post_json("https://api.groq.com/openai/v1/chat/completions",
-                {"model":groq_model,"messages":groq_messages,"temperature":0.7},
-                {"Authorization":"Bearer "+groq_key}, timeout=100)
-            answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
-            if isinstance(answer, list):
-                answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
-            if not answer:
-                return jsonify({"error":"OpenRouter failed and Groq returned an empty response.","provider":"groq"}), 502
-            return jsonify({"reply":answer,"model":result.get("model",groq_model),"provider":"groq",
-                            "fallback_used":True,"fallback_reason":str(reason)[:180],
-                            "web_search_used":bool(body.get("web_search") and os.getenv("TAVILY_API_KEY"))})
-        except urllib.error.HTTPError as exc:
-            try:
-                data = json.loads(exc.read().decode())
-                error = data.get("error", {})
-                detail = error.get("message", "Groq request failed") if isinstance(error,dict) else str(error)
-            except Exception:
-                detail = "Groq request failed"
-            return jsonify({"error":"OpenRouter failed and Groq fallback also failed: "+str(detail)[:250],"provider":"groq","fallback_used":True}), 502
-        except Exception:
-            app.logger.exception("Groq fallback request failed")
-            return jsonify({"error":"OpenRouter and Groq are both temporarily unreachable.","provider":"groq","fallback_used":True}), 502
-
-    if provider == "groq":
-        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
-        if not supabase_url or not proxy_token:
-            return jsonify({"error":"Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render Environment."}), 503
-        try:
-            result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy",
-                {"provider":"groq","path":"/chat/completions","method":"POST",
-                 "body":{"model":config["model"],"messages":messages,"temperature":0.7}},
-                {"x-zirro-proxy-token":proxy_token}, timeout=110)
-            answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
-            if isinstance(answer,list):
-                answer = "\\n".join(p.get("text","") for p in answer if isinstance(p,dict))
-            if not answer:
-                return jsonify({"error":result.get("error","Groq returned an empty response."),"provider":"groq"}), 502
-            return jsonify({"reply":answer,"model":result.get("model",config["model"]),"provider":"groq",
-                            "fallback_used":False,"web_search_used":False})
-        except urllib.error.HTTPError as exc:
-            return jsonify({"error":_provider_error(exc,"Supabase Groq proxy request failed.")}), 502
-        except Exception:
-            app.logger.exception("Supabase Groq proxy request failed")
-            return jsonify({"error":"Could not reach Groq through Supabase. Check that the Edge Function is deployed and its secrets are set."}), 502
-
     if not key:
-        return groq_fallback("OPENROUTER_API_KEY is not configured")
+        return jsonify({"error":"Add "+config["env"]+" in Render Environment, then redeploy."}), 503
     headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI",
                "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")}
     try:
@@ -635,8 +571,8 @@ def chat():
         if isinstance(answer,list):
             answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
         if not answer:
-            return groq_fallback("OpenRouter returned an empty response")
-        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),"provider":"openrouter",
+            return jsonify({"error":config["name"]+" returned an empty response.","provider":provider}), 502
+        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),"provider":provider,
                         "fallback_used":False,
                         "web_search_used":bool(body.get("web_search") and os.getenv("TAVILY_API_KEY"))})
     except urllib.error.HTTPError as exc:
@@ -645,12 +581,11 @@ def chat():
             error = data.get("error", {})
             detail = error.get("message", "Provider request failed") if isinstance(error,dict) else str(error)
         except Exception:
-            detail = "OpenRouter request failed"
-        app.logger.warning("OpenRouter HTTP %s; trying Groq fallback", exc.code)
-        return groq_fallback("OpenRouter HTTP "+str(exc.code)+": "+str(detail)[:180])
-    except Exception as exc:
-        app.logger.warning("OpenRouter request failed (%s); trying Groq fallback", type(exc).__name__)
-        return groq_fallback("OpenRouter network/request failure")
+            detail = config["name"]+" request failed"
+        return jsonify({"error":config["name"]+" API error: "+str(detail)[:300],"provider":provider}), 502
+    except Exception:
+        app.logger.exception(config["name"]+" request failed")
+        return jsonify({"error":"Could not reach "+config["name"]+". Check the API key and try again.","provider":provider}), 502
 
 
 @app.post("/api/provider-proxy")
