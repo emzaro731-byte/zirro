@@ -400,6 +400,22 @@ def generate_image():
         return jsonify({"error": openrouter_error, "fallback_error": str(exc)[:350], "hint": "Check KIE_AI_API_KEY, Kie AI credits, and the selected model's availability."}), 502
 
 
+@app.get("/api/image/status/<task_id>")
+def image_status(task_id):
+    if not task_id or len(task_id) > 180 or not all(c.isalnum() or c in "-_." for c in task_id):
+        return jsonify({"ok": False, "error": "Invalid image task ID."}), 400
+    try:
+        task = _kie_task(task_id)
+        return jsonify({"ok": True, "task_id": task_id, "status": task["status"],
+                        "image_url": task["urls"][0] if task["urls"] else None,
+                        "error": task["error"], "provider": "Kie AI"})
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read Kie AI image status.")}), 502
+    except Exception as exc:
+        app.logger.exception("Kie AI image status check failed")
+        return jsonify({"ok": False, "error": str(exc)[:350]}), 502
+
+
 @app.get("/api/video/models")
 def video_models():
     if not _kie_key():
