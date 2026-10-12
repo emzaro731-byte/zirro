@@ -46,8 +46,48 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
-        "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
+        "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),\n        "huggingface_embeddings_configured": bool(os.getenv("HF_TOKEN")),\n        "embedding_model": os.getenv("HF_EMBEDDING_MODEL", "Emma11122/embeddinggemma-2-bucket"),
         "pdf_support": True})
+
+@app.post("/api/embeddings")
+def embeddings():
+    """Create text embeddings for semantic search / document retrieval.
+    This is separate from chat and does not generate user-facing prose or images.
+    """
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        return jsonify({"error": "Embeddings are not configured. Add HF_TOKEN in Render Environment."}), 503
+    body = request.get_json(silent=True) or {}
+    inputs = body.get("inputs", body.get("text", ""))
+    if isinstance(inputs, str):
+        inputs = [inputs]
+    if not isinstance(inputs, list) or not inputs or len(inputs) > 32:
+        return jsonify({"error": "Send 'text' as a string or 'inputs' as a list of 1–32 strings."}), 400
+    if any(not isinstance(value, str) or not value.strip() for value in inputs):
+        return jsonify({"error": "Every input must be a non-empty string."}), 400
+    if any(len(value) > 8000 for value in inputs):
+        return jsonify({"error": "Each input must be at most 8,000 characters."}), 413
+    model = os.getenv("HF_EMBEDDING_MODEL", "Emma11122/embeddinggemma-2-bucket")
+    try:
+        url = "https://router.huggingface.co/hf-inference/models/" + model
+        result = post_json(url, {"inputs": inputs, "options": {"wait_for_model": True}}, {
+            "Authorization": "Bearer " + token
+        }, timeout=100)
+        # Feature-extraction APIs normally return a list of vectors. Keep the
+        # provider response intact because models may return nested vectors.
+        if isinstance(result, dict) and result.get("error"):
+            return jsonify({"error": str(result["error"])[:350], "model": model}), 502
+        return jsonify({"ok": True, "model": model, "embeddings": result})
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode()).get("error", "Hugging Face inference request failed")
+        except Exception:
+            detail = "Hugging Face inference request failed"
+        return jsonify({"error": str(detail)[:350], "model": model,
+                        "hint": "Confirm the model supports feature extraction and is available through Hugging Face Inference Providers."}), 502
+    except Exception:
+        app.logger.exception("Hugging Face embedding request failed")
+        return jsonify({"error": "Could not reach Hugging Face inference. Try again shortly.", "model": model}), 502
 
 @app.post("/api/chat")
 def chat():
