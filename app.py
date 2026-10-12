@@ -419,9 +419,6 @@ def generate_image():
         return jsonify({"error": "Describe the image you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
-    allowed, quota = _check_generation_limit("image", body)
-    if not allowed:
-        return jsonify(quota), int(quota.get("http_status", 429))
     if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"error": "Kie AI is not configured.", "hint": "Configure KIE_AI_API_KEY in Supabase secrets or Render."}), 503
     try:
@@ -431,8 +428,8 @@ def generate_image():
         })
         result = _kie_wait_for_result(task_id, attempts=40, delay=2)
         if result["status"] == "success" and result["urls"]:
-            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "task_id": task_id, "quota": quota})
-        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "quota": quota}), 202
+            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "task_id": task_id})
+        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI"}), 202
     except urllib.error.HTTPError as exc:
         return jsonify({"error": _provider_error(exc, "Kie AI image generation failed.")}), 502
     except Exception as exc:
@@ -475,10 +472,6 @@ def generate_video():
         return jsonify({"ok": False, "error": "Describe the video you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"ok": False, "error": "Prompt must be 4,000 characters or fewer."}), 413
-    allowed, quota = _check_generation_limit("video", body)
-    if not allowed:
-        return jsonify(quota), 429
-
     duration = 10 if str(body.get("duration", 5)) == "10" else 5
     resolution = str(body.get("resolution", "720p"))
     if resolution not in ("720p", "1080p"):
@@ -493,7 +486,7 @@ def generate_video():
     try:
         task_id = _kie_create_task("runway", task_input, timeout=60)
         return jsonify({"ok": True, "job_id": task_id, "status": "waiting", "model": "runway",
-                        "provider": "Kie AI", "message": "Video submitted. " + str(quota["remaining"]) + " video generations left today.", "quota": quota}), 202
+                        "provider": "Kie AI", "message": "Video submitted successfully."}), 202
     except urllib.error.HTTPError as exc:
         detail = _provider_error(exc, "Kie AI video generation failed.")
         status = 402 if exc.code == 402 or any(w in detail.lower() for w in ("balance", "credit", "insufficient")) else 502
@@ -529,10 +522,6 @@ def generate_music():
         return jsonify({"ok": False, "error": "Describe the music you want to create."}), 400
     if len(prompt) > 2000:
         return jsonify({"ok": False, "error": "Music prompt must be 2,000 characters or fewer."}), 413
-    allowed, quota = _check_generation_limit("music", body)
-    if not allowed:
-        return jsonify(quota), 429
-
     try:
         duration = max(10, min(int(body.get("duration", 30)), 60))
     except (TypeError, ValueError):
@@ -543,7 +532,7 @@ def generate_music():
     try:
         task_id = _kie_create_task("ai-music-api/generate", task_input, timeout=60)
         return jsonify({"ok": True, "prediction_id": task_id, "status": "waiting",
-                        "message": "Music submitted through Kie AI / Suno. " + str(quota["remaining"]) + " music generations left today.", "quota": quota}), 202
+                        "message": "Music submitted through Kie AI / Suno."}), 202
     except urllib.error.HTTPError as exc:
         return jsonify({"ok": False, "error": _provider_error(exc, "Kie AI music generation failed."),
                         "hint": "Check KIE_AI_API_KEY, Kie AI credits, and Suno model availability."}), 502
