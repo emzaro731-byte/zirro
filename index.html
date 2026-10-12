@@ -419,8 +419,7 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 <div class="media-studio hidden" id="videoPanel">
   <div class="media-head"><div class="media-kicker">GENERATIVE VIDEO / KIE AI</div><h2>Video Studio</h2><p>Turn a text prompt into a short video. Generation is asynchronous and may cost credits.</p></div>
   <label for="videoPrompt">Describe your video</label><textarea id="videoPrompt" class="media-input" rows="4" maxlength="4000" placeholder="A cinematic neon city at night, rain reflecting blue lights, slow camera movement…"></textarea>
-  <div class="media-options"><label>Model<select id="videoModel"><option value="runway">Kie AI · Runway</option></select></label><label>Duration<select id="videoDuration"><option value="5">5 seconds</option><option value="10">10 seconds</option></select></label><label>Resolution<select id="videoResolution"><option value="720p">720p</option><option value="1080p">1080p</option></select></label><label>Aspect ratio<select id="videoRatio"><option value="16:9">16:9 landscape</option><option value="9:16">9:16 vertical</option><option value="1:1">1:1 square</option></select></label></div>
-  <label class="media-check"><input id="videoAudio" type="checkbox" checked> Generate audio too, if supported by the model</label>
+  <div class="media-options"><label>Model<select id="videoModel"><option value="runway">Kie AI · Runway</option></select></label><label>Duration<select id="videoDuration"><option value="5">5 seconds</option><option value="10">10 seconds</option></select></label><label>Resolution<select id="videoResolution"><option value="720p">720p</option><option value="1080p">1080p</option></select></label><label>Aspect ratio<select id="videoRatio"><option value="16:9">16:9 landscape</option><option value="9:16">9:16 vertical</option></select></label></div>
   <button id="generateVideo" class="media-primary">✦ Generate video</button><div id="videoStatus" class="media-status" aria-live="polite">Ready. Choose a prompt and model to begin.</div><div id="videoResult" class="media-result"></div>
 </div>
 <div class="media-studio hidden" id="musicPanel">
@@ -512,9 +511,9 @@ async function pollVideo(jobId){
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.error||'Could not check video status.');
     status.textContent='Video status: '+data.status+(data.usage?.cost!=null?' · reported cost: '+String.fromCharCode(36)+data.usage.cost:'');
-    if(data.status==='completed'){
-      const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src='/api/video/content/'+encodeURIComponent(jobId);result.replaceChildren(video);
-      const link=document.createElement('a');link.href=video.src;link.download='zirro-video.mp4';link.textContent='Download video';result.append(link);
+    if(['completed','success'].includes(data.status)){
+      const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src=data.video_url||'';if(!video.src)throw new Error('Kie AI reports success but returned no video URL.');result.replaceChildren(video);
+      const link=document.createElement('a');link.href=data.video_url;link.download='zirro-video.mp4';link.target='_blank';link.rel='noopener';link.textContent='Download video';result.append(link);
       status.textContent='Video ready. If playback does not start, use Download video.';
       return;
     }
