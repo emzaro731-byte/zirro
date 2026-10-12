@@ -302,6 +302,10 @@ def _provider_error(exc, fallback):
 
 
 def _kie_proxy_configured():
+    # Prefer the Kie AI key configured directly in Render. Use the Supabase
+    # proxy only when no direct Render key is present.
+    if os.getenv("KIE_AI_API_KEY", "").strip():
+        return False
     return bool(os.getenv("SUPABASE_URL", "").strip() and
                 os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip())
 
