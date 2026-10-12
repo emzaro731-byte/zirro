@@ -92,6 +92,44 @@ def plugins():
         items.append(item)
     return jsonify({"ok": True, "plugins": items})
 
+
+@app.post("/api/plugins/<plugin_id>/test")
+def test_plugin(plugin_id):
+    """Check connector readiness without exposing secrets or generating billable content."""
+    known = {item["id"]: item for item in PLUGIN_CATALOG}
+    plugin = known.get(plugin_id)
+    if not plugin:
+        return jsonify({"ok": False, "error": "Unknown plugin."}), 404
+    if plugin_id == "openrouter":
+        token = os.getenv("OPENROUTER_API_KEY")
+        if not token:
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Set OPENROUTER_API_KEY in your Render environment."}), 503
+        try:
+            req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": "Bearer " + token})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                if response.status == 200:
+                    return jsonify({"ok": True, "status": "connected", "message": "OpenRouter responded successfully. No generation request was sent."})
+        except urllib.error.HTTPError as exc:
+            return jsonify({"ok": False, "status": "error", "message": "OpenRouter returned HTTP " + str(exc.code) + ". Check the API key and provider status."}), 502
+        except Exception:
+            return jsonify({"ok": False, "status": "error", "message": "Could not reach OpenRouter. Try again shortly."}), 502
+    if plugin_id == "tavily":
+        if not os.getenv("TAVILY_API_KEY"):
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Set TAVILY_API_KEY in your Render environment."}), 503
+        _, error = search_web("ZIRRO AI connector test")
+        if error:
+            return jsonify({"ok": False, "status": "error", "message": error}), 502
+        return jsonify({"ok": True, "status": "connected", "message": "Tavily search responded successfully."})
+    if plugin_id in ("imagegen", "embeddings"):
+        if not os.getenv("OPENROUTER_API_KEY"):
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Set OPENROUTER_API_KEY in your Render environment."}), 503
+        if plugin_id == "imagegen":
+            return jsonify({"ok": True, "status": "configured", "message": "Provider key is configured. Image generation still depends on model support and available credits; no image was generated during this check."})
+        return jsonify({"ok": True, "status": "configured", "message": "Provider key is configured. No embedding request was sent during this check."})
+    if plugin_id == "custom-api":
+        return jsonify({"ok": False, "status": "preview", "message": "This adapter is not implemented yet. No endpoint or credentials have been saved."}), 501
+    return jsonify({"ok": True, "status": "available", "message": "This feature uses built-in or browser-native functionality; no external API key is required."})
+
 @app.post("/api/search")
 def api_search():
     """Run an actual Tavily search using a server-side secret."""
