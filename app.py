@@ -306,8 +306,7 @@ def chat():
     key = (supplied_key or "").strip() or os.getenv(config["env"])
     if len(key) > 500:
         return jsonify({"error":"API key is too long."}), 400
-    if not key:
-        return jsonify({"error":config["name"]+" is not connected yet. Add your own key using “My API Key”, or ask the app owner to configure "+config["env"]+" on the server.","provider":provider,"needs_setup":True}), 503
+    # Missing primary key is handled by the Groq fallback below.
     message = str(body.get("message", "")).strip()
     mode = body.get("mode", "chat")
     attachments = body.get("attachments") or []
@@ -359,28 +358,75 @@ def chat():
                 parts.append({"type":"text","text":"Could not extract readable text from PDF "+str(item.get("name","document.pdf"))+". It may be scanned or protected."})
     content = parts if any(p["type"] == "image_url" for p in parts) else "\\n\\n".join(p["text"] for p in parts if p["type"] == "text")
     messages.append({"role":"user","content":content or message})
+
     payload = {"model":config["model"],"messages":messages,"temperature":0.7}
-    headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI"}
-    if provider == "openrouter":
-        headers["HTTP-Referer"] = os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")
+    def groq_fallback(reason):
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if not groq_key:
+            return jsonify({"error":"OpenRouter is unavailable and Groq fallback is not configured. Add GROQ_API_KEY in Render Environment.","provider":"openrouter","fallback_available":False}), 502
+        groq_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                text_parts = []
+                for part in content:
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif part.get("type") == "image_url":
+                        text_parts.append("[Image/video frame attached; the default Groq fallback model cannot inspect it.]")
+                content = "\n".join(text_parts)
+            groq_messages.append({"role":msg.get("role","user"),"content":content})
+        groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        try:
+            result = post_json("https://api.groq.com/openai/v1/chat/completions",
+                {"model":groq_model,"messages":groq_messages,"temperature":0.7},
+                {"Authorization":"Bearer "+groq_key}, timeout=100)
+            answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
+            if isinstance(answer, list):
+                answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
+            if not answer:
+                return jsonify({"error":"OpenRouter failed and Groq returned an empty response.","provider":"groq"}), 502
+            return jsonify({"reply":answer,"model":result.get("model",groq_model),"provider":"groq",
+                            "fallback_used":True,"fallback_reason":str(reason)[:180],
+                            "web_search_used":bool(body.get("web_search") and os.getenv("TAVILY_API_KEY"))})
+        except urllib.error.HTTPError as exc:
+            try:
+                data = json.loads(exc.read().decode())
+                error = data.get("error", {})
+                detail = error.get("message", "Groq request failed") if isinstance(error,dict) else str(error)
+            except Exception:
+                detail = "Groq request failed"
+            return jsonify({"error":"OpenRouter failed and Groq fallback also failed: "+str(detail)[:250],"provider":"groq","fallback_used":True}), 502
+        except Exception:
+            app.logger.exception("Groq fallback request failed")
+            return jsonify({"error":"OpenRouter and Groq are both temporarily unreachable.","provider":"groq","fallback_used":True}), 502
+
+    if not key:
+        return groq_fallback("OPENROUTER_API_KEY is not configured")
+    headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI",
+               "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")}
     try:
         result = post_json(config["url"], payload, headers, timeout=100)
         answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
         if isinstance(answer,list):
-            answer = "\\n".join(p.get("text","") for p in answer if isinstance(p,dict))
-        if not answer: return jsonify({"error":"The AI provider returned an empty response. Try again.","provider":provider}), 502
-        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),"provider":provider,
+            answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
+        if not answer:
+            return groq_fallback("OpenRouter returned an empty response")
+        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),"provider":"openrouter",
+                        "fallback_used":False,
                         "web_search_used":bool(body.get("web_search") and os.getenv("TAVILY_API_KEY"))})
     except urllib.error.HTTPError as exc:
         try:
-            err_data=json.loads(exc.read().decode())
-            err_obj=err_data.get("error",{})
-            detail=err_obj.get("message","Provider request failed") if isinstance(err_obj,dict) else str(err_obj)
-        except Exception: detail="Provider request failed"
-        return jsonify({"error":config["name"]+" error: "+str(detail)[:350],"provider":provider}), 502
-    except Exception:
-        app.logger.exception("%s request failed", config["name"])
-        return jsonify({"error":"Could not reach "+config["name"]+". Please try again shortly.","provider":provider}), 502
+            data = json.loads(exc.read().decode())
+            error = data.get("error", {})
+            detail = error.get("message", "Provider request failed") if isinstance(error,dict) else str(error)
+        except Exception:
+            detail = "OpenRouter request failed"
+        app.logger.warning("OpenRouter HTTP %s; trying Groq fallback", exc.code)
+        return groq_fallback("OpenRouter HTTP "+str(exc.code)+": "+str(detail)[:180])
+    except Exception as exc:
+        app.logger.warning("OpenRouter request failed (%s); trying Groq fallback", type(exc).__name__)
+        return groq_fallback("OpenRouter network/request failure")
 
 @app.errorhandler(413)
 def too_large(_):
