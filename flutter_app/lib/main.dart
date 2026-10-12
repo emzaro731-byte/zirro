@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -108,14 +109,6 @@ class _ZirroWebsiteScreenState extends State<ZirroWebsiteScreen> {
       ..loadRequest(Uri.parse(_siteUrl));
   }
 
-  Future<bool> _handleBack() async {
-    if (await _web.canGoBack()) {
-      await _web.goBack();
-      return false;
-    }
-    return true;
-  }
-
   Future<void> _reload() async {
     setState(() {
       _loading = true;
@@ -127,8 +120,16 @@ class _ZirroWebsiteScreenState extends State<ZirroWebsiteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _handleBack,
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (await _web.canGoBack()) {
+          await _web.goBack();
+        } else {
+          await SystemNavigator.pop();
+        }
+      },
       child: Scaffold(
         body: SafeArea(
           child: Column(
