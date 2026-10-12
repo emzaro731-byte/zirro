@@ -9,6 +9,8 @@ services:
     envVars:
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: KIE_AI_API_KEY
+        sync: false
       - key: OPENROUTER_MODEL
         value: openrouter/free
       - key: GROQ_API_KEY
