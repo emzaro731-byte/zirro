@@ -231,10 +231,11 @@ def embeddings():
 @app.post("/api/generate-image")
 def generate_image():
     """Generate an image using an OpenRouter model that supports image output."""
-    token = os.getenv("OPENROUTER_API_KEY")
-    if not token:
-        return jsonify({"error": "Add OPENROUTER_API_KEY in Render Environment."}), 503
     body = request.get_json(silent=True) or {}
+    # User-supplied keys are used for this request only and are never persisted.
+    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY")
+    if not token:
+        return jsonify({"error": "Add your OpenRouter API key with “My API Key”, or configure OPENROUTER_API_KEY in Render."}), 503
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
         return jsonify({"error": "Describe the image you want to create."}), 400
@@ -302,9 +303,15 @@ def chat():
     config = providers.get(provider)
     if not config:
         return jsonify({"error":"Unknown provider. Choose OpenRouter, ChatGPT/OpenAI, Grok, Gemini, or Perplexity."}), 400
-    key = os.getenv(config["env"])
+    # Per-user API keys are accepted for this request only; they are not stored.
+    supplied_key = body.get("api_key", "")
+    if supplied_key is not None and not isinstance(supplied_key, str):
+        return jsonify({"error":"API key must be a string."}), 400
+    key = (supplied_key or "").strip() or os.getenv(config["env"])
+    if len(key) > 500:
+        return jsonify({"error":"API key is too long."}), 400
     if not key:
-        return jsonify({"error":config["name"]+" is not connected yet. Add "+config["env"]+" in your Render Environment settings, then redeploy." ,"provider":provider,"needs_setup":True}), 503
+        return jsonify({"error":config["name"]+" is not connected yet. Add your own key using “My API Key”, or ask the app owner to configure "+config["env"]+" on the server.","provider":provider,"needs_setup":True}), 503
     message = str(body.get("message", "")).strip()
     mode = body.get("mode", "chat")
     attachments = body.get("attachments") or []
