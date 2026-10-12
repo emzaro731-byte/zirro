@@ -245,7 +245,14 @@ def generate_image():
             detail = error_body.get("message", "Image generation request failed") if isinstance(error_body, dict) else str(error_body)
         except Exception:
             detail = "Image generation request failed"
-        return jsonify({"error": "Image provider error: " + str(detail)[:350]}), 502
+        detail_text = str(detail)[:350]
+        lower_detail = detail_text.lower()
+        if any(word in lower_detail for word in ("insufficient", "balance", "credit", "requires at least $1")):
+            return jsonify({"error": "Image provider error: " + detail_text,
+                            "hint": "The provider requires available account credits for image output. Add credits in your OpenRouter account or choose a model/provider with pricing you can afford. Setting an API key alone does not provide free image generation.",
+                            "model": model}), 402
+        return jsonify({"error": "Image provider error: " + detail_text,
+                        "hint": "Check that OPENROUTER_IMAGE_MODEL supports image output and that the provider is available."}), 502
     except Exception:
         app.logger.exception("Image generation failed")
         return jsonify({"error": "Could not reach the image provider. Please try again shortly."}), 502
