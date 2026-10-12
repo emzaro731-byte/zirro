@@ -428,14 +428,16 @@ def generate_image():
     if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"error": "Kie AI is not configured.", "hint": "Configure KIE_AI_API_KEY in Supabase secrets or Render."}), 503
     try:
-        task_id = _kie_create_task("gpt-image-2-text-to-image", {
+        image_model = os.getenv("KIE_IMAGE_MODEL", "gpt-image-2-text-to-image").strip() or "gpt-image-2-text-to-image"
+        task_id = _kie_create_task(image_model, {
             "prompt": prompt,
             "aspect_ratio": str(body.get("aspect_ratio") or "auto")
         })
-        result = _kie_wait_for_result(task_id, attempts=40, delay=2)
-        if result["status"] == "success" and result["urls"]:
-            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "task_id": task_id})
-        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI"}), 202
+        # Return immediately after Kie accepts the job. The browser polls
+        # /api/image/status/<task_id>, avoiding an 80-second request timeout.
+        return jsonify({"ok": True, "status": "processing", "task_id": task_id,
+                        "model": image_model,
+                        "provider": "Kie AI", "message": "Image job accepted; generation is running."}), 202
     except urllib.error.HTTPError as exc:
         return jsonify({"error": _provider_error(exc, "Kie AI image generation failed.")}), 502
     except Exception as exc:
