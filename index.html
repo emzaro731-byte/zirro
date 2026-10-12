@@ -391,10 +391,16 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 @media(max-width:720px){.security-head{padding:15px;flex-direction:column}.security-head h2{font-size:24px}.security-grid{grid-template-columns:1fr}.security-card.wide{grid-column:auto}.secure-badge{align-self:flex-start}.security-card{padding:15px}}
 @media(prefers-reduced-motion:reduce){.security-panel{animation:none}.strength-track span{transition:none}}
 
+
+.media-studio{width:min(760px,100%);margin:0 auto 26px;padding:clamp(18px,4vw,30px);border:1px solid #328bff42;border-radius:22px;background:linear-gradient(145deg,#0d1524f5,#10111df5);box-shadow:0 18px 55px #0004;animation:mediaIn .25s ease}
+@keyframes mediaIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.media-head h2{font:600 clamp(26px,4vw,34px)/1.2 'Space Grotesk';margin:8px 0}.media-head p{color:var(--muted);font-size:13px;line-height:1.65;margin:0 0 22px}.media-kicker{font:700 10px monospace;letter-spacing:2px;color:#65caff}.media-studio>label{display:block;font-size:12px;color:#c7d4ec;margin:12px 0 8px}.media-input{display:block;width:100%;resize:vertical;min-height:96px;padding:13px 14px;border:1px solid #35435f;border-radius:13px;background:#080d17;color:#f5f6ff;outline:none;font-size:13px;line-height:1.6}.media-input:focus{border-color:#61c7ff;box-shadow:0 0 0 3px #61c7ff12}.media-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}.media-options label{display:grid;gap:7px;font-size:11px;color:#aebbd5}.media-options select{width:100%;min-width:0;background:#0b1220;color:#eef4ff;border:1px solid #2c3b56;border-radius:10px;padding:11px;font-size:12px}.media-check{display:flex!important;align-items:center;gap:8px}.media-check input{accent-color:#61c7ff}.media-primary{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(100deg,#56b9ff,#9b8cff);color:#080d17;font-weight:800}.media-primary:disabled{opacity:.55;cursor:wait}.media-status{font-size:12px;line-height:1.65;color:#b6c6e1;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}.media-result{margin-top:14px}.media-result video,.media-result audio{display:block;width:100%;max-width:100%;margin-top:10px;border-radius:12px}.media-result a{display:inline-block;margin:10px 12px 0 0;color:#83d4ff;font-size:12px}.media-note{font-size:11px;color:#9ba9c2;line-height:1.6}.media-studio .media-result img{max-width:100%;border-radius:12px}
+@media(max-width:520px){.media-options{grid-template-columns:1fr}.media-studio{padding:17px;border-radius:17px}.media-head p{font-size:12px}}
+
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
-<div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button><button data-mode="security"><span class="ico">⌁</span> Security Lab</button></nav>
+<div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button><button data-mode="security"><span class="ico">⌁</span> Security Lab</button><button data-mode="video"><span class="ico">▶</span> Video Studio</button><button data-mode="music"><span class="ico">♫</span> Music Studio</button></nav>
 
 <div class="navlabel">RECENT CHATS</div><div class="history" id="history"><button>No conversations yet</button></div>
 <div class="profile"><div class="avatar">Z</div><div><strong style="font-size:12px">ZIRRO Workspace</strong><small>Free access · Provider limits apply</small></div></div></aside>
@@ -409,13 +415,28 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
     <article class="security-card wide"><div class="security-icon">▣</div><h3>Website hardening checklist</h3><p>Use this checklist on a website you own or administer.</p><div class="security-checks" id="securityChecks"><label><input type="checkbox"> HTTPS is enabled and HTTP redirects to HTTPS</label><label><input type="checkbox"> Admin and account pages use multi-factor authentication</label><label><input type="checkbox"> Dependencies and server packages are updated</label><label><input type="checkbox"> API keys and secrets stay on the server, never in frontend code</label><label><input type="checkbox"> Backups exist and a restore has been tested</label><label><input type="checkbox"> Login, password reset, and API endpoints have rate limits</label><label><input type="checkbox"> Security headers and a restrictive Content Security Policy are configured</label></div><div class="check-progress"><span id="checkProgress">0 of 7 completed</span><button class="security-button" id="resetChecks" type="button">Reset checklist</button></div></article>
   </div><div class="security-note">⚠ Use these tools only on accounts, devices, networks, and websites you own or are explicitly authorized to assess. The checklist is guidance, not a vulnerability scan.</div>
 </div>
+
+<div class="media-studio hidden" id="videoPanel">
+  <div class="media-head"><div class="media-kicker">GENERATIVE VIDEO / OPENROUTER</div><h2>Video Studio</h2><p>Turn a text prompt into a short video. Generation is asynchronous and may cost credits.</p></div>
+  <label for="videoPrompt">Describe your video</label><textarea id="videoPrompt" class="media-input" rows="4" maxlength="4000" placeholder="A cinematic neon city at night, rain reflecting blue lights, slow camera movement…"></textarea>
+  <div class="media-options"><label>Model<select id="videoModel"><option value="google/veo-3.1">Google Veo 3.1</option><option value="alibaba/wan-2.7">Alibaba Wan 2.7</option><option value="minimax/hailuo-3">MiniMax Hailuo 3</option></select></label><label>Duration<select id="videoDuration"><option value="5">5 seconds</option><option value="8">8 seconds</option><option value="4">4 seconds</option><option value="6">6 seconds</option></select></label><label>Resolution<select id="videoResolution"><option value="720p">720p</option><option value="1080p">1080p</option></select></label><label>Aspect ratio<select id="videoRatio"><option value="16:9">16:9 landscape</option><option value="9:16">9:16 vertical</option><option value="1:1">1:1 square</option></select></label></div>
+  <label class="media-check"><input id="videoAudio" type="checkbox" checked> Generate audio too, if supported by the model</label>
+  <button id="generateVideo" class="media-primary">✦ Generate video</button><div id="videoStatus" class="media-status" aria-live="polite">Ready. Choose a prompt and model to begin.</div><div id="videoResult" class="media-result"></div>
+</div>
+<div class="media-studio hidden" id="musicPanel">
+  <div class="media-head"><div class="media-kicker">GENERATIVE AUDIO / MUSICGEN</div><h2>Music Studio</h2><p>Create original music from a text description. This uses Replicate MusicGen and requires its own API token and available credits.</p></div>
+  <label for="musicPrompt">Describe your music</label><textarea id="musicPrompt" class="media-input" rows="4" maxlength="2000" placeholder="Afrobeats instrumental, warm bass, bright percussion, uplifting melody, no vocals…"></textarea>
+  <div class="media-options"><label>Length<select id="musicDuration"><option value="8">8 seconds</option><option value="12">12 seconds</option><option value="16">16 seconds</option><option value="24">24 seconds</option><option value="30">30 seconds</option></select></label></div>
+  <button id="generateMusic" class="media-primary">♫ Generate music</button><div id="musicStatus" class="media-status" aria-live="polite">Ready. Describe a genre, mood, instruments, and tempo.</div><div id="musicResult" class="media-result"></div>
+</div>
+
 <div class="suggestions" id="suggestions"><button class="suggestion" data-prompt="Help me build a beautiful modern website. Give me a plan and starter code."><div class="sicon">⌘</div><strong>Build something amazing</strong><small>Turn an idea into a website or app</small></button><button class="suggestion" data-prompt="Write a compelling, polished piece of content for my idea. Ask me what you need to know."><div class="sicon">✎</div><strong>Write with clarity</strong><small>Ideas, stories, emails and content</small></button><button class="suggestion" data-prompt="Explain a difficult topic clearly, with examples and a practical step-by-step guide."><div class="sicon">✧</div><strong>Learn anything</strong><small>Clear explanations, examples and plans</small></button><button class="suggestion" data-prompt="Help me research this topic, compare options, and separate known facts from uncertainty: "><div class="sicon">◎</div><strong>Explore a question</strong><small>Analyze options and organize your thinking</small></button></div>
 <div class="chat" id="chat" aria-live="polite"></div>
 <div class="composerwrap"><div class="composer"><textarea id="prompt" placeholder="Message ZIRRO… ask anything, build anything" rows="2"></textarea><div class="composerbar"><button class="toolbtn" id="attach" title="Attach an image or text document">＋</button><input type="file" id="files" class="hidden" accept="image/*,video/*,.txt,.md,.csv,.json,.pdf,.html,.css,.js,.py,.xml,.yaml,.yml,.log,.ts,.jsx,.tsx,.dart,.sql,.sh,.toml,.ini,.env" multiple><button class="toolbtn" id="voice" title="Voice input">🎙</button><button class="toolbtn" id="webSearch" title="Toggle live web search">🌐</button><span class="composerhint" id="filehint">AI can make mistakes. Review important information.</span><button class="send" id="send" title="Send message">↑</button></div></div><div class="fineprint">ZIRRO can make mistakes. Check important information.</div></div>
 </section></main></div><div id="toast" class="toast hidden"></div><div id="authModal" class="authmodal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle"><form id="authForm" class="authcard"><button type="button" id="authClose" class="authclose" aria-label="Close">×</button><div class="eyebrow">YOUR PERSONAL WORKSPACE</div><h2 id="authTitle">Welcome to ZIRRO</h2><p id="authDescription">Sign in to sync your conversations across devices.</p><label for="authEmail">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"><button id="authSubmit" class="newchat" type="submit">Sign in</button><button id="authSwitch" class="authswitch" type="button">New here? Create an account</button><button id="authSignOut" class="authswitch hidden" type="button">Sign out</button><small id="authNote">Email confirmation may be required depending on your Supabase settings.</small></form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
 const $=s=>document.querySelector(s),chat=$('#chat'),promptBox=$('#prompt');const selectedProvider='openrouter';let mode='chat',busy=false,webSearchEnabled=false,attached=[],conversations=JSON.parse(localStorage.getItem('zirro_chats')||'[]'),current=[];
-const modes={chat:['ZIRRO Free AI','Message ZIRRO… ask anything, build anything'],write:['AI Writer','What would you like to write today?'],code:['Code Studio','Describe the code, app, or bug you want help with…'],research:['Research Lab','What would you like to investigate?'],image:['Image Studio','Describe an image or upload one for AI analysis…'],documents:['Document Intelligence','Upload a document or ask a question…'],security:['ZIRRO Security Lab','Ask about defensive security, hardening, or authorized testing…']};
+const modes={chat:['ZIRRO Free AI','Message ZIRRO… ask anything, build anything'],write:['AI Writer','What would you like to write today?'],code:['Code Studio','Describe the code, app, or bug you want help with…'],research:['Research Lab','What would you like to investigate?'],image:['Image Studio','Describe an image or upload one for AI analysis…'],documents:['Document Intelligence','Upload a document or ask a question…'],security:['ZIRRO Security Lab','Ask about defensive security, hardening, or authorized testing…'],video:['Video Studio','Describe the video you want to create…'],music:['Music Studio','Describe the music you want to create…']};
 function toast(s){$('#toast').textContent=s;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),3000)}
 
 let zSupabase=null,zUser=null,authMode='signin',cloudSyncBusy=false;
@@ -452,4 +473,77 @@ $('#resetChecks').onclick=()=>{document.querySelectorAll('#securityChecks input'
 const priorSetMode=setMode;
 setMode=function(m){priorSetMode(m);$('#securityPanel').classList.toggle('hidden',m!=='security');if(m==='security'){ $('#hero').classList.remove('hidden');$('#hero').querySelector('.eyebrow').textContent='AUTHORIZED DEFENSIVE SECURITY';$('#hero').querySelector('h1').innerHTML='Welcome to <span>Security Lab.</span>';}else{$('#hero').querySelector('.eyebrow').textContent='YOUR AI ASSISTANT';$('#hero').querySelector('h1').innerHTML='Hi, I’m <span>ZIRRO.</span>';}};
 $('#webSearch').onclick=()=>{webSearchEnabled=!webSearchEnabled;$('#webSearch').classList.toggle('on',webSearchEnabled);toast(webSearchEnabled?'Live web search enabled (requires Tavily key on server).':'Live web search disabled')};function addReplyActions(bubble,text){const actions=document.createElement('div');actions.className='message-actions';const copy=document.createElement('button');copy.textContent='Copy';copy.onclick=async()=>{try{await navigator.clipboard.writeText(text);toast('Copied response')}catch(e){toast('Copy not available in this browser')}};const speak=document.createElement('button');speak.textContent='🔊 Read aloud';speak.onclick=()=>{if(!('speechSynthesis'in window)){toast('Read aloud is not supported here');return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';speechSynthesis.speak(u)};actions.append(copy,speak);bubble.append(actions)}$('#send').onclick=send;promptBox.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});renderHistory();
+
+
+const baseSetMode=setMode;
+setMode=function(m){
+  if(!modes[m])m='chat';
+  baseSetMode(m);
+  const studio=m==='video'||m==='music';
+  $('#videoPanel').classList.toggle('hidden',m!=='video');
+  $('#musicPanel').classList.toggle('hidden',m!=='music');
+  $('#securityPanel').classList.toggle('hidden',m!=='security');
+  $('#hero').classList.toggle('hidden',studio);
+  $('#suggestions').classList.toggle('hidden',studio||m==='security');
+  $('#featurebar').classList.toggle('hidden',studio||m==='security');
+  $('#chat').classList.toggle('hidden',studio);
+  $('.composerwrap').classList.toggle('hidden',studio);
+  if(m==='video'){$('#modelName').textContent='Video Studio · OpenRouter';}
+  if(m==='music'){$('#modelName').textContent='Music Studio · MusicGen';}
+  if(studio){$('#sidebar').classList.remove('open');}
+};
+async function pollVideo(jobId){
+  const status=$('#videoStatus'),result=$('#videoResult');
+  for(let i=0;i<90;i++){
+    await new Promise(r=>setTimeout(r,i===0?1800:3000));
+    const response=await fetch('/api/video/status/'+encodeURIComponent(jobId));
+    const data=await response.json();
+    if(!response.ok||!data.ok)throw new Error(data.error||'Could not check video status.');
+    status.textContent='Video status: '+data.status+(data.usage?.cost!=null?' · reported cost: </body></html>+data.usage.cost:'');
+    if(data.status==='completed'){
+      const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src='/api/video/content/'+encodeURIComponent(jobId);result.replaceChildren(video);
+      const link=document.createElement('a');link.href=video.src;link.download='zirro-video.mp4';link.textContent='Download video';result.append(link);
+      status.textContent='Video ready. If playback does not start, use Download video.';
+      return;
+    }
+    if(['failed','cancelled','error'].includes(data.status))throw new Error(data.error||'Video generation failed.');
+  }
+  status.textContent='The job is still processing. Reopen Video Studio and submit/check status later using job ID: '+jobId;
+}
+$('#generateVideo').onclick=async()=>{
+  const prompt=$('#videoPrompt').value.trim();if(!prompt){toast('Describe the video first');return}
+  const btn=$('#generateVideo'),status=$('#videoStatus'),result=$('#videoResult');btn.disabled=true;result.replaceChildren();status.textContent='Submitting video job…';
+  try{
+    const res=await fetch('/api/generate-video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,model:$('#videoModel').value,duration:Number($('#videoDuration').value),resolution:$('#videoResolution').value,aspect_ratio:$('#videoRatio').value,generate_audio:$('#videoAudio').checked})});
+    const data=await res.json();if(!res.ok||!data.ok)throw new Error((data.error||'Video request failed')+(data.hint?'\n'+data.hint:''));
+    status.textContent=data.message+' Job ID: '+data.job_id;
+    await pollVideo(data.job_id);
+  }catch(e){status.textContent='⚠ '+e.message;toast('Video generation did not finish')}
+  finally{btn.disabled=false}
+};
+$('#generateMusic').onclick=async()=>{
+  const prompt=$('#musicPrompt').value.trim();if(!prompt){toast('Describe the music first');return}
+  const btn=$('#generateMusic'),status=$('#musicStatus'),result=$('#musicResult');btn.disabled=true;result.replaceChildren();status.textContent='Submitting music job…';
+  try{
+    const res=await fetch('/api/generate-music',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,duration:Number($('#musicDuration').value)})});
+    let data=await res.json();if(!res.ok||!data.ok)throw new Error((data.error||'Music request failed')+(data.hint?'\n'+data.hint:''));
+    const id=data.prediction_id;if(!id)throw new Error('Music provider did not return a job ID.');
+    status.textContent='Music job: '+data.status+' · ID: '+id;
+    for(let i=0;i<90;i++){
+      if(data.music_url)break;
+      await new Promise(r=>setTimeout(r,2500));
+      const poll=await fetch('/api/music/status/'+encodeURIComponent(id));data=await poll.json();
+      if(!poll.ok||!data.ok)throw new Error(data.error||'Could not check music status.');
+      status.textContent='Music status: '+data.status;
+      if(data.status==='failed'||data.status==='canceled')throw new Error(data.error||'Music generation failed.');
+      if(data.music_url)break;
+    }
+    if(!data.music_url){status.textContent='Still processing. Music job ID: '+id+' — check again later.';return}
+    const audio=document.createElement('audio');audio.controls=true;audio.src=data.music_url;result.replaceChildren(audio);
+    const link=document.createElement('a');link.href=data.music_url;link.download='zirro-music.mp3';link.target='_blank';link.rel='noopener';link.textContent='Open / download music';result.append(link);
+    status.textContent='Music ready. Play it below or open the download link.';
+  }catch(e){status.textContent='⚠ '+e.message;toast('Music generation did not finish')}
+  finally{btn.disabled=false}
+};
+
 </script></body></html>
