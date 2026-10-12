@@ -47,7 +47,7 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
-        "groq_configured": bool(os.getenv("GROQ_API_KEY")),
+        "groq_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
         "chat_failover": False,
         "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
@@ -123,17 +123,21 @@ def test_plugin(plugin_id):
     }
     if plugin_id == "groq":
         token = os.getenv("GROQ_API_KEY", "").strip()
-        if not token:
-            return jsonify({"ok": False, "status": "needs_setup", "message": "Set GROQ_API_KEY in Render Environment, then redeploy."}), 503
+        if not token and not _kie_proxy_configured():
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Configure GROQ_API_KEY as a Supabase Edge Function secret and set SUPABASE_URL plus ZIRRO_SUPABASE_PROXY_TOKEN in Render."}), 503
         try:
-            req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": "Bearer " + token})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                if response.status == 200:
-                    return jsonify({"ok": True, "status": "connected", "message": "Groq API responded successfully."})
+            if _kie_proxy_configured():
+                _supabase_provider_request("groq", "/models", "GET", timeout=20)
+            else:
+                req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": "Bearer " + token})
+                with urllib.request.urlopen(req, timeout=20) as response:
+                    if response.status != 200:
+                        raise RuntimeError("Groq model check failed")
+            return jsonify({"ok": True, "status": "connected", "message": "Groq API responded successfully."})
         except urllib.error.HTTPError as exc:
-            return jsonify({"ok": False, "status": "error", "message": "Groq returned HTTP " + str(exc.code) + ". Check the API key, model access, and account limits."}), 502
+            return jsonify({"ok": False, "status": "error", "message": "Groq returned HTTP " + str(exc.code) + ". Check the Supabase GROQ_API_KEY secret, model access, and account limits."}), 502
         except Exception:
-            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq. Try again shortly."}), 502
+            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq. Check the Supabase proxy deployment and GROQ_API_KEY secret."}), 502
     if plugin_id in provider_checks:
         env_name, url, provider_name = provider_checks[plugin_id]
         token = os.getenv(env_name)
@@ -306,6 +310,20 @@ def _kie_proxy_configured():
                 os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip())
 
 
+def _supabase_provider_request(provider, path, method="POST", payload=None, timeout=45):
+    if not _kie_proxy_configured():
+        raise RuntimeError("Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render.")
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
+    return post_json(
+        supabase_url + "/functions/v1/zirro-provider-proxy",
+        {"provider": provider, "method": method, "path": path,
+         "body": payload if payload is not None else {}},
+        {"x-zirro-proxy-token": proxy_token},
+        timeout=timeout
+    )
+
+
 def _kie_key():
     # The key may live in Supabase Edge Function secrets instead of Render.
     return os.getenv("KIE_AI_API_KEY", "").strip()
@@ -315,15 +333,7 @@ def _kie_request(path, payload=None, timeout=45):
     method = "GET" if payload is None else "POST"
     if _kie_proxy_configured():
         # Provider credentials stay in Supabase; Render only forwards a scoped request.
-        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
-        result = post_json(
-            supabase_url + "/functions/v1/zirro-provider-proxy",
-            {"provider": "kie", "method": method, "path": path,
-             "body": payload if payload is not None else {}},
-            {"x-zirro-proxy-token": proxy_token},
-            timeout=timeout
-        )
+        result = _supabase_provider_request("kie", path, method, payload, timeout)
     else:
         token = _kie_key()
         if not token:
@@ -669,12 +679,15 @@ def chat():
     messages.append({"role":"user","content":content or message})
 
     payload = {"model":config["model"],"messages":messages,"temperature":0.7}
-    if not key:
-        return jsonify({"error":"Add "+config["env"]+" in Render Environment, then redeploy."}), 503
+    if not key and not (provider == "groq" and _kie_proxy_configured()):
+        return jsonify({"error":"Configure "+config["env"]+" in Render, or set GROQ_API_KEY as a Supabase Edge Function secret and configure the Supabase proxy."}), 503
     headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI",
                "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")}
     try:
-        result = post_json(config["url"], payload, headers, timeout=100)
+        if provider == "groq" and _kie_proxy_configured():
+            result = _supabase_provider_request("groq", "/chat/completions", "POST", payload, timeout=100)
+        else:
+            result = post_json(config["url"], payload, headers, timeout=100)
         answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
         if isinstance(answer,list):
             answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
@@ -707,8 +720,8 @@ def provider_proxy():
     provider = str(body.get("provider", "")).lower()
     path = str(body.get("path", ""))
     method = str(body.get("method", "POST")).upper()
-    if provider not in ("fal", "kie"):
-        return jsonify({"ok": False, "error": "Provider must be fal or kie."}), 400
+    if provider not in ("groq", "fal", "kie"):
+        return jsonify({"ok": False, "error": "Provider must be groq, fal, or kie."}), 400
     if method not in ("GET", "POST"):
         return jsonify({"ok": False, "error": "Only GET and POST are supported."}), 400
     if not path or len(path) > 500 or ".." in path or "://" in path:
