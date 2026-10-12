@@ -446,6 +446,101 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 }
 @media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
 
+
+/* ZIRRO Native Black + Deep Navy Blue theme */
+:root{
+  color-scheme:dark;
+  --bg:#020306;
+  --panel:#050a12;
+  --panel2:#071426;
+  --line:#102b49;
+  --muted:#8da5c2;
+  --text:#f0f6ff;
+  --purple:#1677e8;
+  --blue:#268cff;
+  --mint:#4caeff;
+  --cyber-blue:#268cff;
+  --cyber-green:#268cff;
+}
+html,body{background:#020306!important;color:#f0f6ff!important}
+body{
+  background:radial-gradient(ellipse at 52% -22%,#08284d 0,transparent 46%),linear-gradient(180deg,#020306 0%,#030812 55%,#020306 100%)!important;
+  background-attachment:fixed!important;
+}
+.app,.main{background:transparent!important}
+.sidebar{
+  background:linear-gradient(180deg,#050b15 0%,#02050a 100%)!important;
+  border-right:1px solid #102b49!important;
+  box-shadow:inset -1px 0 #0a1d32!important;
+}
+.brand strong{color:#f0f6ff!important}
+.brand small,.navlabel,.profile small{color:#829ab8!important}
+.logo{background:linear-gradient(135deg,#247fe8,#0b3b78)!important;color:#fff!important;box-shadow:0 0 22px #0868d52b!important}
+.newchat,.security-button.primary{
+  background:linear-gradient(120deg,#1269c9,#083b7a)!important;
+  color:#f5f9ff!important;border:1px solid #1e66b0!important;
+  box-shadow:0 7px 22px #0057b51c!important;
+}
+.nav button{color:#a6bad3!important}
+.nav button.active,.nav button:hover{
+  background:linear-gradient(100deg,#0b2d50,#07172a)!important;
+  border-color:#174d80!important;color:#fff!important;
+  box-shadow:inset 3px 0 #268cff!important;
+}
+.nav .ico,.eyebrow,.media-kicker{color:#4ca3ff!important}
+.topbar{background:#02060cf0!important;border-bottom:1px solid #102b49!important}
+.modelpill,.ghost,.toolbtn{
+  background:#06101e!important;border:1px solid #12365b!important;color:#d9eaff!important;
+  box-shadow:none!important;
+}
+.ghost:hover,.toolbtn:hover{background:#0a2039!important;border-color:#268cff!important}
+.dot{background:#268cff!important;box-shadow:0 0 10px #268cff!important}
+.hero h1,.hero h1 span{color:#f0f6ff!important;background:none!important}
+.hero h1 span{color:#4ca3ff!important}
+.hero p,.suggestion small,.media-head p{color:#91a9c5!important}
+.orb{background:radial-gradient(circle at 30% 20%,#8dcaff,#268cff 43%,#07336a 80%)!important;box-shadow:0 0 36px #087bff2b!important}
+.orb:after{color:#fff!important}
+.suggestion{
+  background:linear-gradient(145deg,#071629,#03070e)!important;
+  border:1px solid #123252!important;box-shadow:inset 0 1px #ffffff08!important;
+}
+.suggestion:hover{background:linear-gradient(145deg,#0a2340,#050d19)!important;border-color:#268cff80!important}
+.sicon,.security-icon{background:#0a2340!important;border-color:#174d80!important;color:#65b5ff!important}
+.message.user .bubble{background:linear-gradient(135deg,#0a2c50,#07182a)!important;border:1px solid #174d80!important;color:#f0f6ff!important}
+.message.assistant .bubble pre{background:#03070d!important;border-color:#153657!important;color:#e7f2ff!important}
+.composerwrap{background:linear-gradient(transparent,#020306 26%)!important}
+.composer{background:rgba(4,12,23,.98)!important;border-color:#17416a!important;box-shadow:0 16px 48px #0009,0 0 0 3px #087bff0b!important}
+.composer:focus-within{border-color:#268cff!important;box-shadow:0 0 0 3px #268cff18,0 14px 44px #0009!important}
+.composer textarea{color:#f0f6ff!important}
+.toolbtn.on,.toolbtn:active,#webSearch.on{background:#0b3764!important;border-color:#268cff!important;color:#d9efff!important}
+.send,.media-primary{
+  background:linear-gradient(135deg,#2e9aff,#075ac2)!important;color:#fff!important;
+  border:1px solid #53adff!important;box-shadow:0 5px 20px #087bff2b!important;
+}
+.featurebar span,.message-actions button{background:#06101e!important;border-color:#123252!important;color:#b8cee7!important}
+.toast{background:#061326!important;border-color:#1b4d7c!important;color:#f0f6ff!important}
+.authmodal{background:#01040ad9!important}
+.authcard,.media-studio,.security-head,.security-card{
+  background:linear-gradient(145deg,#07172a,#03070e)!important;border-color:#14385b!important;color:#f0f6ff!important;
+}
+.authcard label,.media-studio>label,.media-options label{color:#bfd4ee!important}
+.authcard input,.media-input,.media-options select,.security-input{
+  background:#02070f!important;border-color:#173657!important;color:#f0f6ff!important;
+}
+.authcard input:focus,.media-input:focus,.security-input:focus{border-color:#268cff!important;box-shadow:0 0 0 3px #268cff18!important}
+.authswitch,.media-result a{color:#63b4ff!important}
+.password-output{background:#02070f!important;border-color:#14385b!important;color:#65b5ff!important}
+.security-button{background:#07172a!important;border-color:#17416a!important;color:#d9eaff!important}
+.security-checks label{color:#c2d5eb!important}
+.security-checks input{accent-color:#268cff!important}
+.strength-track span{background:#268cff!important}
+.secure-badge,.strength-result,.status{color:#65b5ff!important}
+@media(max-width:720px){.sidebar{background:linear-gradient(180deg,#050b15,#02050a)!important}.topbar{background:#02060cf5!important}}
+body.navy-mode{
+  background:radial-gradient(ellipse at 50% -15%,#0a3160 0,transparent 48%),linear-gradient(180deg,#030914,#061426 60%,#02060c)!important;
+}
+body.navy-mode .sidebar{background:linear-gradient(180deg,#07172a,#030812)!important}
+body.navy-mode .main{background:rgba(3,10,20,.12)!important}
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
@@ -526,7 +621,7 @@ function addMessage(role,content,saveIt=true){$('#hero').classList.add('hidden')
 function setMode(m){mode=m;document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));$('#modelName').textContent=modes[m][0];promptBox.placeholder=modes[m][1];$('#sidebar').classList.remove('open');if(m==='image')toast('Describe an image to generate it, or attach an image to analyze it.');}
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{promptBox.value=b.dataset.prompt;promptBox.focus()});
 $('#newChat').onclick=()=>{current=[];window.cid=null;chat.innerHTML='';$('#hero').classList.remove('hidden');$('#suggestions').classList.remove('hidden');$('#featurebar').classList.remove('hidden');$('#sidebar').classList.remove('open')};$('#clear').onclick=()=>$('#newChat').click();$('#menu').onclick=()=>$('#sidebar').classList.toggle('open');
-$('#theme').onclick=()=>{document.body.classList.toggle('light');if(document.body.classList.contains('light')){document.body.style.setProperty('--bg','#f4f5fb');document.body.style.setProperty('--panel','#fff');document.body.style.setProperty('--text','#17182b');document.body.style.setProperty('--muted','#5d637a');document.body.style.background='#f4f5fb'}else{document.body.style=''}};
+$('#theme').onclick=()=>{document.body.classList.toggle('navy-mode');toast(document.body.classList.contains('navy-mode')?'Deep navy theme enabled':'Native black and dark blue theme enabled')};
 $('#attach').onclick=()=>$('#files').click();$('#files').onchange=async e=>{attached=[];for(const f of e.target.files){if(f.size>8*1024*1024){toast(f.name+' is over 8 MB');continue}try{if(f.type.startsWith('image/')){const data=await new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});attached.push({name:f.name,type:'image',data})}else if(f.type.startsWith('video/')){const frames=await extractVideoFrames(f);if(frames.length)attached.push({name:f.name,type:'video',frames});else toast('Could not read video '+f.name)}else if(f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf')){const data=await new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});attached.push({name:f.name,type:'pdf',data})}else if(f.type.startsWith('text/')||/\\.(txt|md|csv|json|html|css|js|py|xml|ya?ml|log|ts|jsx|tsx|dart|sql|sh|toml|ini|env)$/i.test(f.name)){attached.push({name:f.name,type:'text',text:(await f.text()).slice(0,16000)})}else{toast('Unsupported file type: '+f.name+' (use PDF, image, video, or text/code file)')}}catch(err){toast('Could not read '+f.name)}}$('#filehint').textContent=attached.length?attached.map(f=>f.name+' ('+f.type+')').join(', ').slice(0,100):'Attach images, videos, PDFs, or text/code files';e.target.value=''};
 async function extractVideoFrames(file){return new Promise(resolve=>{const url=URL.createObjectURL(file),v=document.createElement('video');v.preload='metadata';v.muted=true;v.playsInline=true;let done=false;const finish=frames=>{if(done)return;done=true;URL.revokeObjectURL(url);resolve(frames)};v.onerror=()=>finish([]);v.onloadedmetadata=async()=>{try{const duration=Number.isFinite(v.duration)?v.duration:0;if(!duration){finish([]);return}const times=[0.05,0.33,0.66,0.95].map(p=>Math.max(0,Math.min(duration-0.05,duration*p)));const frames=[];const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=Math.min(v.videoWidth||640,640);canvas.height=Math.max(1,Math.round(canvas.width*(v.videoHeight||360)/(v.videoWidth||640)));for(const t of [...new Set(times)]){await new Promise((res,rej)=>{v.onseeked=()=>res();v.onerror=()=>rej(new Error('seek failed'));v.currentTime=t});ctx.drawImage(v,0,0,canvas.width,canvas.height);frames.push({time:t,data:canvas.toDataURL('image/jpeg',0.68)})}finish(frames)}catch(_){finish([])}};v.src=url;v.load()});}
 $('#voice').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('Voice input is not supported by this browser. Try Chrome.');return}const r=new SR();r.lang='en-NG';r.onresult=e=>{promptBox.value+=(promptBox.value?' ':'')+e.results[0][0].transcript};r.start()};
