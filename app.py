@@ -644,8 +644,13 @@ def music_status(prediction_id):
 def chat():
     body = request.get_json(silent=True) or {}
     provider = str(body.get("provider", "groq")).lower()
+    # Groq retired llama-3.3-70b-versatile for free/developer plans in Aug 2026.
+    # Migrate the old default (and stale Render GROQ_MODEL values) automatically.
+    configured_model = os.getenv("GROQ_MODEL", "").strip()
+    if not configured_model or configured_model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"):
+        configured_model = "openai/gpt-oss-120b" if configured_model == "llama-3.3-70b-versatile" or not configured_model else "openai/gpt-oss-20b"
     providers = {
-        "groq": {"env":"GROQ_API_KEY","url":"https://api.groq.com/openai/v1/chat/completions","model":os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"),"name":"Groq"}
+        "groq": {"env":"GROQ_API_KEY","url":"https://api.groq.com/openai/v1/chat/completions","model":configured_model,"name":"Groq"}
     }
     config = providers.get(provider)
     if not config:
