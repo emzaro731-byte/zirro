@@ -64,7 +64,7 @@ def health():
 PLUGIN_CATALOG = [
     {"id": "openrouter", "name": "OpenRouter AI", "type": "connector", "feature": "chat", "env": "OPENROUTER_API_KEY"},
     {"id": "openai", "name": "ChatGPT / OpenAI", "type": "connector", "feature": "chat", "env": "OPENAI_API_KEY"},
-    {"id": "grok", "name": "Grok by xAI", "type": "connector", "feature": "chat", "env": "XAI_API_KEY"},
+    {"id": "groq", "name": "Groq", "type": "connector", "feature": "chat", "env": "GROQ_API_KEY"},
     {"id": "gemini", "name": "Google Gemini", "type": "connector", "feature": "chat", "env": "GEMINI_API_KEY"},
     {"id": "perplexity", "name": "Perplexity AI", "type": "connector", "feature": "chat", "env": "PERPLEXITY_API_KEY"},
     {"id": "tavily", "name": "Tavily Web Search", "type": "connector", "feature": "search", "env": "TAVILY_API_KEY"},
@@ -82,7 +82,7 @@ def plugins():
     health = {
         "openrouter": bool(os.getenv("OPENROUTER_API_KEY")),
         "openai": bool(os.getenv("OPENAI_API_KEY")),
-        "grok": bool(os.getenv("XAI_API_KEY")),
+        "groq": bool(os.getenv("SUPABASE_URL") and os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN")),
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
@@ -117,10 +117,23 @@ def test_plugin(plugin_id):
         return jsonify({"ok": False, "error": "Unknown plugin."}), 404
     provider_checks = {
         "openai": ("OPENAI_API_KEY", "https://api.openai.com/v1/models", "ChatGPT / OpenAI"),
-        "grok": ("XAI_API_KEY", "https://api.x.ai/v1/models", "Grok / xAI"),
-        "gemini": ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/models", "Google Gemini"),
+                "gemini": ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/models", "Google Gemini"),
         "perplexity": ("PERPLEXITY_API_KEY", "https://api.perplexity.ai/chat/completions", "Perplexity AI"),
     }
+    if plugin_id == "groq":
+        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
+        if not supabase_url or not proxy_token:
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render, and add GROQ_API_KEY to Supabase Edge Function secrets."}), 503
+        try:
+            result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy", {"provider":"groq","path":"/models","method":"GET"}, {"x-zirro-proxy-token":proxy_token}, timeout=25)
+            if isinstance(result, dict) and result.get("error"):
+                return jsonify({"ok": False, "status": "error", "message": "Groq proxy returned an error. Check GROQ_API_KEY in Supabase."}), 502
+            return jsonify({"ok": True, "status": "connected", "message": "Groq responded through the Supabase proxy."})
+        except urllib.error.HTTPError as exc:
+            return jsonify({"ok": False, "status": "error", "message": "Groq proxy returned HTTP " + str(exc.code) + ". Check the Supabase function and GROQ_API_KEY."}), 502
+        except Exception:
+            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq through Supabase."}), 502
     if plugin_id in provider_checks:
         env_name, url, provider_name = provider_checks[plugin_id]
         token = os.getenv(env_name)
@@ -482,7 +495,7 @@ def chat():
     provider = str(body.get("provider", "openrouter")).lower()
     providers = {
         "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"},
-        "grok": {"env":"", "url":"", "model":os.getenv("XAI_MODEL","grok-4-fast"), "name":"Grok by xAI"}
+        "groq": {"env":"", "url":"", "model":os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"), "name":"Groq"}
     }
     config = providers.get(provider)
     if not config:
@@ -589,28 +602,28 @@ def chat():
             app.logger.exception("Groq fallback request failed")
             return jsonify({"error":"OpenRouter and Groq are both temporarily unreachable.","provider":"groq","fallback_used":True}), 502
 
-    if provider == "grok":
+    if provider == "groq":
         supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
         proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
         if not supabase_url or not proxy_token:
             return jsonify({"error":"Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render Environment."}), 503
         try:
             result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy",
-                {"provider":"grok","path":"/chat/completions","method":"POST",
+                {"provider":"groq","path":"/chat/completions","method":"POST",
                  "body":{"model":config["model"],"messages":messages,"temperature":0.7}},
                 {"x-zirro-proxy-token":proxy_token}, timeout=110)
             answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
             if isinstance(answer,list):
                 answer = "\\n".join(p.get("text","") for p in answer if isinstance(p,dict))
             if not answer:
-                return jsonify({"error":result.get("error","Grok returned an empty response."),"provider":"grok"}), 502
-            return jsonify({"reply":answer,"model":result.get("model",config["model"]),"provider":"grok",
+                return jsonify({"error":result.get("error","Groq returned an empty response."),"provider":"groq"}), 502
+            return jsonify({"reply":answer,"model":result.get("model",config["model"]),"provider":"groq",
                             "fallback_used":False,"web_search_used":False})
         except urllib.error.HTTPError as exc:
-            return jsonify({"error":_provider_error(exc,"Supabase Grok proxy request failed.")}), 502
+            return jsonify({"error":_provider_error(exc,"Supabase Groq proxy request failed.")}), 502
         except Exception:
-            app.logger.exception("Supabase Grok proxy request failed")
-            return jsonify({"error":"Could not reach Grok through Supabase. Check that the Edge Function is deployed and its secrets are set."}), 502
+            app.logger.exception("Supabase Groq proxy request failed")
+            return jsonify({"error":"Could not reach Groq through Supabase. Check that the Edge Function is deployed and its secrets are set."}), 502
 
     if not key:
         return groq_fallback("OPENROUTER_API_KEY is not configured")
@@ -651,8 +664,8 @@ def provider_proxy():
     provider = str(body.get("provider", "")).lower()
     path = str(body.get("path", ""))
     method = str(body.get("method", "POST")).upper()
-    if provider not in ("grok", "fal", "kie"):
-        return jsonify({"ok": False, "error": "Provider must be grok, fal, or kie."}), 400
+    if provider not in ("groq", "fal", "kie"):
+        return jsonify({"ok": False, "error": "Provider must be groq, fal, or kie."}), 400
     if method not in ("GET", "POST"):
         return jsonify({"ok": False, "error": "Only GET and POST are supported."}), 400
     if not path or len(path) > 500 or ".." in path or "://" in path:
