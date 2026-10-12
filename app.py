@@ -46,8 +46,9 @@ def home():
 @app.get("/api/health")
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
-        "provider_configured": bool(os.getenv("GROQ_API_KEY") or _kie_proxy_configured()),
-        "groq_configured": bool(os.getenv("GROQ_API_KEY", "").strip() or _supabase_proxy_configured()),
+        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY", "").strip()),
+        "openrouter_configured": bool(os.getenv("OPENROUTER_API_KEY", "").strip()),
+        "chat_provider": "OpenRouter",
         "chat_failover": False,
         "image_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
@@ -64,7 +65,6 @@ def health():
 
 PLUGIN_CATALOG = [
     {"id": "openai", "name": "ChatGPT / OpenAI", "type": "connector", "feature": "chat", "env": "OPENAI_API_KEY"},
-    {"id": "groq", "name": "Groq", "type": "connector", "feature": "chat", "env": "GROQ_API_KEY"},
     {"id": "gemini", "name": "Google Gemini", "type": "connector", "feature": "chat", "env": "GEMINI_API_KEY"},
     {"id": "perplexity", "name": "Perplexity AI", "type": "connector", "feature": "chat", "env": "PERPLEXITY_API_KEY"},
     {"id": "tavily", "name": "Tavily Web Search", "type": "connector", "feature": "search", "env": "TAVILY_API_KEY"},
@@ -80,7 +80,6 @@ def plugins():
     """Return safe plugin metadata and configuration state; never expose secret values."""
     health = {
         "openai": bool(os.getenv("OPENAI_API_KEY")),
-        "groq": bool(os.getenv("GROQ_API_KEY", "").strip() or _supabase_proxy_configured()),
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
@@ -117,23 +116,6 @@ def test_plugin(plugin_id):
                 "gemini": ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/models", "Google Gemini"),
         "perplexity": ("PERPLEXITY_API_KEY", "https://api.perplexity.ai/chat/completions", "Perplexity AI"),
     }
-    if plugin_id == "groq":
-        token = os.getenv("GROQ_API_KEY", "").strip()
-        if not token and not _supabase_proxy_configured():
-            return jsonify({"ok": False, "status": "needs_setup", "message": "Configure the Supabase provider proxy in Render, or add GROQ_API_KEY directly."}), 503
-        try:
-            if not token and _supabase_proxy_configured():
-                _supabase_provider_request("groq", "/models", "GET", timeout=20)
-            else:
-                req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": "Bearer " + token})
-                with urllib.request.urlopen(req, timeout=20) as response:
-                    if response.status != 200:
-                        raise RuntimeError("Groq model check failed")
-            return jsonify({"ok": True, "status": "connected", "message": "Groq API responded successfully."})
-        except urllib.error.HTTPError as exc:
-            return jsonify({"ok": False, "status": "error", "message": "Groq returned HTTP " + str(exc.code) + ". Check the Supabase GROQ_API_KEY secret, model access, and account limits."}), 502
-        except Exception:
-            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq. Check the Supabase proxy deployment and GROQ_API_KEY secret."}), 502
     if plugin_id in provider_checks:
         env_name, url, provider_name = provider_checks[plugin_id]
         token = os.getenv(env_name)
@@ -643,18 +625,16 @@ def music_status(prediction_id):
 @app.post("/api/chat")
 def chat():
     body = request.get_json(silent=True) or {}
-    provider = str(body.get("provider", "groq")).lower()
-    # Groq retired llama-3.3-70b-versatile for free/developer plans in Aug 2026.
-    # Migrate the old default (and stale Render GROQ_MODEL values) automatically.
-    configured_model = os.getenv("GROQ_MODEL", "").strip()
-    if not configured_model or configured_model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"):
-        configured_model = "openai/gpt-oss-120b" if configured_model == "llama-3.3-70b-versatile" or not configured_model else "openai/gpt-oss-20b"
-    providers = {
-        "groq": {"env":"GROQ_API_KEY","url":"https://api.groq.com/openai/v1/chat/completions","model":configured_model,"name":"Groq"}
+    provider = str(body.get("provider", "openrouter")).lower()
+    if provider not in ("openrouter", "", "default"):
+        return jsonify({"error": "Unsupported provider. ZIRRO chat uses OpenRouter."}), 400
+    provider = "openrouter"
+    config = {
+        "env": "OPENROUTER_API_KEY",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "model": os.getenv("OPENROUTER_MODEL", "openrouter/free"),
+        "name": "OpenRouter"
     }
-    config = providers.get(provider)
-    if not config:
-        return jsonify({"error":"Unsupported provider. ZIRRO uses Groq for chat."}), 400
     # Per-user API keys are accepted for this request only; they are not stored.
     supplied_key = body.get("api_key", "")
     if supplied_key is not None and not isinstance(supplied_key, str):
@@ -662,7 +642,6 @@ def chat():
     key = (supplied_key or "").strip() or os.getenv(config["env"], "")
     if len(key) > 500:
         return jsonify({"error":"API key is too long."}), 400
-    # Missing primary key is handled by the Groq fallback below.
     message = str(body.get("message", "")).strip()
     mode = body.get("mode", "chat")
     attachments = body.get("attachments") or []
@@ -716,15 +695,12 @@ def chat():
     messages.append({"role":"user","content":content or message})
 
     payload = {"model":config["model"],"messages":messages,"temperature":0.7}
-    if not key and not (provider == "groq" and _supabase_proxy_configured()):
-        return jsonify({"error":"Configure GROQ_API_KEY in Supabase Edge Function secrets and the Supabase proxy token in Render, or add GROQ_API_KEY directly in Render."}), 503
+    if not key:
+        return jsonify({"error":"Configure OPENROUTER_API_KEY in Render Environment, then redeploy."}), 503
     headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI",
                "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")}
     try:
-        if provider == "groq" and not key and _supabase_proxy_configured():
-            result = _supabase_provider_request("groq", "/chat/completions", "POST", payload, timeout=100)
-        else:
-            result = post_json(config["url"], payload, headers, timeout=100)
+        result = post_json(config["url"], payload, headers, timeout=100)
         answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
         if isinstance(answer,list):
             answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
