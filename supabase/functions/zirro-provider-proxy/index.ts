@@ -23,10 +23,18 @@ Deno.serve(async (req) => {
   const method = String(input.method || "POST").toUpperCase();
   const path = String(input.path || "");
   if (!["GET", "POST"].includes(method)) return json({ error: "Only GET and POST are supported" }, 400);
-  if (!path || path.includes("..") || path.includes("://") || path.includes("\\"))
+  if (!path || path.length > 500 || path.includes("..") || path.includes("://") ||
+      path.includes("\\\\") || path.includes("#")) {
     return json({ error: "Invalid provider path" }, 400);
+  }
+  const queryAt = path.indexOf("?");
+  const routePath = queryAt >= 0 ? path.slice(0, queryAt) : path;
+  const queryString = queryAt >= 0 ? path.slice(queryAt + 1) : "";
+  if (queryString && !/^[a-zA-Z0-9._~%=&-]+$/.test(queryString)) {
+    return json({ error: "Invalid provider query string" }, 400);
+  }
 
-  let base = "";
+  let base = "";  let base = "";
   let secretName = "";
   let authScheme = "Bearer";
   if (provider === "groq") {
@@ -58,7 +66,8 @@ Deno.serve(async (req) => {
     body = JSON.stringify(input.body ?? {});
   }
   try {
-    const upstream = await fetch(base + path, { method, headers, body, signal: AbortSignal.timeout(110000) });
+    const target = base + routePath + (queryString ? "?" + queryString : "");
+    const upstream = await fetch(target, { method, headers, body, signal: AbortSignal.timeout(110000) });
     const text = await upstream.text();
     return new Response(text, {
       status: upstream.status,
