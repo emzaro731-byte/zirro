@@ -21,6 +21,10 @@ services:
         value: google/veo-3.1
       - key: REPLICATE_API_TOKEN
         sync: false
+      - key: SUPABASE_URL
+        value: https://vihbsfrwnslnmheowkhy.supabase.co
+      - key: ZIRRO_SUPABASE_PROXY_TOKEN
+        sync: false
       - key: TAVILY_API_KEY
         sync: false
       - key: OPENROUTER_EMBEDDING_MODEL
