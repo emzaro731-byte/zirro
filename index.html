@@ -397,13 +397,62 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 .media-head h2{font:600 clamp(26px,4vw,34px)/1.2 'Space Grotesk';margin:8px 0}.media-head p{color:var(--muted);font-size:13px;line-height:1.65;margin:0 0 22px}.media-kicker{font:700 10px monospace;letter-spacing:2px;color:#65caff}.media-studio>label{display:block;font-size:12px;color:#c7d4ec;margin:12px 0 8px}.media-input{display:block;width:100%;resize:vertical;min-height:96px;padding:13px 14px;border:1px solid #35435f;border-radius:13px;background:#080d17;color:#f5f6ff;outline:none;font-size:13px;line-height:1.6}.media-input:focus{border-color:#61c7ff;box-shadow:0 0 0 3px #61c7ff12}.media-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}.media-options label{display:grid;gap:7px;font-size:11px;color:#aebbd5}.media-options select{width:100%;min-width:0;background:#0b1220;color:#eef4ff;border:1px solid #2c3b56;border-radius:10px;padding:11px;font-size:12px}.media-check{display:flex!important;align-items:center;gap:8px}.media-check input{accent-color:#61c7ff}.media-primary{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(100deg,#56b9ff,#9b8cff);color:#080d17;font-weight:800}.media-primary:disabled{opacity:.55;cursor:wait}.media-status{font-size:12px;line-height:1.65;color:#b6c6e1;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}.media-result{margin-top:14px}.media-result video,.media-result audio{display:block;width:100%;max-width:100%;margin-top:10px;border-radius:12px}.media-result a{display:inline-block;margin:10px 12px 0 0;color:#83d4ff;font-size:12px}.media-note{font-size:11px;color:#9ba9c2;line-height:1.6}.media-studio .media-result img{max-width:100%;border-radius:12px}
 @media(max-width:520px){.media-options{grid-template-columns:1fr}.media-studio{padding:17px;border-radius:17px}.media-head p{font-size:12px}}
 
+
+/* Composer controls + sidebar interaction fix */
+.composerwrap{position:sticky;bottom:0;z-index:3;padding:16px 0 max(10px,env(safe-area-inset-bottom));}
+.composer{width:100%;min-width:0;overflow:hidden;padding:10px 12px;background:rgba(13,17,31,.96);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
+.composer textarea{min-width:0;min-height:48px;max-height:140px;line-height:1.5;overflow-y:auto;}
+.composerbar{display:flex;align-items:center;gap:8px;min-width:0;}
+.toolbtn,.send{flex:0 0 38px;width:38px;height:38px;min-width:38px;min-height:38px;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1;font-size:19px;border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#attach{font-size:25px;font-weight:400}
+#voice,#webSearch{font-size:18px}
+#webSearch.on{background:#263e5c;border-color:#7dd3fc;color:#a5e4ff;box-shadow:0 0 0 2px #7dd3fc18}
+.send{font-size:23px;font-weight:700;flex-basis:40px;width:40px;height:40px;min-width:40px;background:linear-gradient(135deg,#bda8ff,#7dd3fc);box-shadow:0 5px 18px #7c8cff30}
+.composerhint{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar{overscroll-behavior:contain;scrollbar-width:thin}
+.sidebar .nav{min-width:0}
+.sidebar .nav button{min-width:0;width:100%;line-height:1.35}
+@media(max-width:720px){
+ .app{display:block;min-height:100dvh}
+ .main{min-height:100dvh;min-width:0}
+ .sidebar{position:fixed!important;top:0;bottom:0;left:0;right:auto;z-index:30;width:min(300px,88vw)!important;height:100dvh!important;max-height:100dvh;overflow-x:hidden;overflow-y:auto;padding:calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));transform:translateX(-110%);visibility:hidden;transition:transform .24s ease,visibility .24s ease;box-shadow:20px 0 70px #0009}
+ .sidebar.open{transform:translateX(0);visibility:visible}
+ .sidebar-backdrop{position:fixed;inset:0;z-index:29;background:#02040bc2;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+ .topbar{height:calc(60px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 10px 0;gap:8px}
+ .topbar>div:first-child{gap:7px!important;min-width:0}
+ .mobilemenu{display:inline-flex!important;align-items:center;justify-content:center;width:38px;height:38px;min-width:38px;padding:0;font-size:20px}
+ .modelpill{min-width:0;max-width:47vw;gap:6px;padding:8px 9px;font-size:11px}
+ #modelName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .topactions{gap:5px;min-width:0;align-items:center}
+ .topactions .ghost{padding:8px 9px;font-size:11px;white-space:nowrap}
+ .topactions #theme{display:none}
+ .content{width:100%;padding:24px 12px calc(16px + env(safe-area-inset-bottom))}
+ .composerwrap{width:100%;padding-top:14px}
+ .composer{border-radius:18px;padding:9px}
+ .composer textarea{font-size:16px;padding:7px 4px;min-height:44px}
+ .composerbar{gap:6px}
+ .toolbtn,.send{flex-basis:36px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:11px}
+ #attach{font-size:24px}
+ #voice,#webSearch{font-size:17px}
+ .send{font-size:22px}
+ .composerhint{display:none}
+ .fineprint{font-size:9px}
+}
+@media(max-width:380px){
+ .topactions #account{display:none}
+ .modelpill{max-width:50vw}
+ .composerbar{gap:5px}
+ .toolbtn,.send{flex-basis:34px;width:34px;height:34px;min-width:34px;min-height:34px}
+}
+@media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
+
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
 <div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button><button data-mode="security"><span class="ico">⌁</span> Security Lab</button><button data-mode="video"><span class="ico">▶</span> Video Studio</button><button data-mode="music"><span class="ico">♫</span> Music Studio</button><button data-mode="providers"><span class="ico">⇄</span> Provider API Console</button></nav>
 
 <div class="navlabel">RECENT CHATS</div><div class="history" id="history"><button>No conversations yet</button></div>
-<div class="profile"><div class="avatar">Z</div><div><strong style="font-size:12px">ZIRRO Workspace</strong><small>Free access · Provider limits apply</small></div></div></aside>
+<div class="profile"><div class="avatar">Z</div><div><strong style="font-size:12px">ZIRRO Workspace</strong><small>Free access · Provider limits apply</small></div></div></aside><div class="sidebar-backdrop hidden" id="sidebarBackdrop" aria-hidden="true"></div>
 <main class="main"><header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="ghost mobilemenu" id="menu">☰</button><div class="modelpill"><span class="dot"></span><span id="modelName">ZIRRO Free AI</span><span style="color:#7d849d">⌄</span></div></div><div class="topactions"><span class="ghost" style="max-width:125px;padding:8px 10px">Groq AI</span><button class="ghost" id="account">Sign in</button><button class="ghost" id="theme">◐ Theme</button><button class="ghost" id="clear">Clear</button></div></header>
 <section class="content"><div class="hero" id="hero"><div class="orb"></div><div class="eyebrow">YOUR AI ASSISTANT</div><h1>Hi, I’m <span>ZIRRO.</span></h1><p>How can I help you today?</p></div>
 <div class="featurebar" id="featurebar"><span>✦ Smart conversations</span><span>⌘ Code & debugging</span><span>▧ Image understanding</span><span>◈ Writing & research</span></div>
@@ -443,6 +492,16 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 </section></main></div><div id="toast" class="toast hidden"></div><div id="authModal" class="authmodal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle"><form id="authForm" class="authcard"><button type="button" id="authClose" class="authclose" aria-label="Close">×</button><div class="eyebrow">YOUR PERSONAL WORKSPACE</div><h2 id="authTitle">Welcome to ZIRRO</h2><p id="authDescription">Sign in to sync your conversations across devices.</p><label for="authEmail">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"><button id="authSubmit" class="newchat" type="submit">Sign in</button><button id="authSwitch" class="authswitch" type="button">New here? Create an account</button><button id="authSignOut" class="authswitch hidden" type="button">Sign out</button><small id="authNote">Email confirmation may be required depending on your Supabase settings.</small></form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
 const $=s=>document.querySelector(s),chat=$('#chat'),promptBox=$('#prompt');let selectedProvider='groq';let mode='chat',busy=false,webSearchEnabled=false,attached=[],conversations=JSON.parse(localStorage.getItem('zirro_chats')||'[]'),current=[];
+
+// Reliable responsive sidebar open/close behavior.
+const sidebar=$('#sidebar'),sidebarBackdrop=$('#sidebarBackdrop');
+function closeSidebar(){sidebar?.classList.remove('open');sidebarBackdrop?.classList.add('hidden');document.body.style.overflow='';$('#menu')?.setAttribute('aria-expanded','false')}
+function openSidebar(){sidebar?.classList.add('open');sidebarBackdrop?.classList.remove('hidden');document.body.style.overflow='hidden';$('#menu')?.setAttribute('aria-expanded','true')}
+$('#menu')?.addEventListener('click',()=>sidebar?.classList.contains('open')?closeSidebar():openSidebar());
+sidebarBackdrop?.addEventListener('click',closeSidebar);
+sidebar?.querySelectorAll('.nav button, #newChat, .history button').forEach(b=>b.addEventListener('click',()=>{if(window.matchMedia('(max-width: 720px)').matches)closeSidebar()}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar()});
+
 const modes={chat:['ZIRRO Free AI','Message ZIRRO… ask anything, build anything'],write:['AI Writer','What would you like to write today?'],code:['Code Studio','Describe the code, app, or bug you want help with…'],research:['Research Lab','What would you like to investigate?'],image:['Image Studio','Describe an image or upload one for AI analysis…'],documents:['Document Intelligence','Upload a document or ask a question…'],security:['ZIRRO Security Lab','Ask about defensive security, hardening, or authorized testing…'],video:['Video Studio','Describe the video you want to create…'],music:['Music Studio','Describe the music you want to create…'],providers:['Provider API Console','Send requests to fal.ai, Kie AI, or Groq through Supabase']};
 function toast(s){$('#toast').textContent=s;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),3000)}
 
