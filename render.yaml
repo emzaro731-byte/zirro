@@ -11,3 +11,5 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: openrouter/free
+      - key: TAVILY_API_KEY
+        sync: false
