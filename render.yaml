@@ -11,6 +11,10 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: openrouter/free
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: OPENROUTER_IMAGE_MODEL
         value: google/gemini-3.1-flash-image
       - key: TAVILY_API_KEY
