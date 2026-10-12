@@ -431,7 +431,7 @@ body{background-color:#05090e!important;background-image:linear-gradient(#0b2430
 </div>
 <div class="media-studio hidden" id="providerPanel">
   <div class="media-head"><div class="media-kicker">SECURE SERVER-SIDE CONNECTORS / SUPABASE</div><h2>Provider API Console</h2><p>Send requests through the ZIRRO backend to fal.ai, Kie AI, or Groq. API keys remain in Supabase Edge Function secrets. Use each provider's current endpoint and request schema.</p></div>
-  <div class="media-options"><label>Provider<select id="proxyProvider"><option value="fal">fal.ai</option><option value="kie">Kie AI</option><option value="groq">Groq by Groq</option></select></label><label>HTTP method<select id="proxyMethod"><option value="POST">POST</option><option value="GET">GET</option></select></label></div>
+  <div class="media-options"><label>Provider<select id="proxyProvider"><option value="fal">fal.ai</option><option value="kie">Kie AI</option></select></label><label>HTTP method<select id="proxyMethod"><option value="POST">POST</option><option value="GET">GET</option></select></label></div>
   <label for="proxyPath">Provider endpoint path</label><input id="proxyPath" class="media-input" style="min-height:0" value="/fal-ai/flux/dev" placeholder="/provider/endpoint">
   <label for="proxyBody">JSON request body (POST only)</label><textarea id="proxyBody" class="media-input" rows="7" spellcheck="false">{ "prompt": "A cinematic futuristic city at sunset" }</textarea>
   <button id="sendProxy" class="media-primary">⇄ Send provider request</button><div id="proxyStatus" class="media-status" aria-live="polite">Ready. Choose a provider and enter its supported endpoint.</div>
