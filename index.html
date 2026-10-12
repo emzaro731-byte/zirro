@@ -259,6 +259,31 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
  .sidebar,.topbar,.modelpill,.ghost,.hero,.suggestion,.composer,.toast,.authcard{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background-color:#171a28!important}
 }
 
+
+/* Sidebar scrolling fix — allow the whole side menu to scroll vertically */
+html,body{overscroll-behavior-y:auto}
+.sidebar{
+  height:100dvh!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(210,215,240,.35) transparent;
+  touch-action:pan-y;
+}
+.sidebar::-webkit-scrollbar{width:5px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(210,215,240,.28);border-radius:99px}
+.sidebar>*{flex-shrink:0}
+.history{max-height:min(36vh,320px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+@media(max-width:720px){
+  .sidebar{position:fixed!important;top:0!important;bottom:0!important;height:100dvh!important;max-height:100dvh!important;overflow-y:auto!important;padding-bottom:24px!important}
+  .history{max-height:28vh}
+}
+@media(prefers-reduced-motion:reduce){.sidebar{scroll-behavior:auto}}
+
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
