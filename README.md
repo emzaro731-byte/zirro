@@ -40,7 +40,7 @@
 - `GET /api/plugins` — connector catalogue and safe configuration status.
 - `POST /api/plugins/<plugin_id>/test` — connector readiness test. OpenRouter and Tavily tests make a lightweight provider request; image and embedding checks only verify configuration to avoid billable generation.
 - `POST /api/chat` — AI chat; supports optional web search and supported attachments.
-  Send `provider` as `openrouter`, `openai`, `grok`, `gemini`, or `perplexity` to choose the configured provider.
+  Chat uses OpenRouter by default; configure `OPENROUTER_API_KEY` and optionally `OPENROUTER_MODEL` in Render.
 - `POST /api/search` — run Tavily web search. JSON body: `{"query":"your search query"}`.
 - `POST /api/generate-image` — image generation. JSON body: `{"prompt":"describe the image"}`.
 - `POST /api/embeddings` — create embeddings. JSON body: `{"input":["first text","second text"]}`.
@@ -58,7 +58,7 @@ The migration at `supabase/migrations/20261012_daily_generation_limits.sql` crea
 3. Save changes and redeploy the Render service.
 4. Verify `GET /api/health` reports `supabase_quota_storage_configured: true`.
 
-The quota is 3 image generations, 3 video generations, and 3 music generations per client per UTC day, resetting at 00:00 UTC. Generation still requires valid OpenRouter/Kie AI credentials and sufficient provider credits.
+The quota is 3 image generations, 3 video generations, and 3 music generations per client per UTC day, resetting at 00:00 UTC. Chat requires a valid OpenRouter key; image, video, and music generation require valid Kie AI credentials and sufficient provider credits.
 
 ## Local development
 
