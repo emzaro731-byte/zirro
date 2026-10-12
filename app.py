@@ -1,4 +1,4 @@
-import base64, io, json, os, sqlite3, hashlib, urllib.request, urllib.error
+import base64, io, json, os, hashlib, urllib.request, urllib.error
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -54,6 +54,7 @@ def health():
         "video_model": "runway",
         "music_generation_configured": bool(os.getenv("KIE_AI_API_KEY")),
         "music_provider": "Kie AI / Suno",
+        "supabase_quota_storage_configured": bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
         "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image") + " (Kie AI fallback enabled)",
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
         "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
@@ -249,34 +250,45 @@ def embeddings():
 
 
 GENERATION_DAILY_LIMIT = 3
-GENERATION_DB = os.getenv("GENERATION_LIMIT_DB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "zirro_generation_limits.sqlite3"))
 
 def _check_generation_limit(kind, body):
+    """Atomically enforce daily per-browser media quotas in persistent Supabase storage."""
     client_id = str((body or {}).get("client_id", "")).strip()
     if not (12 <= len(client_id) <= 100 and all(c.isalnum() or c in "-_." for c in client_id)):
         forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
         client_id = "ip:" + (forwarded or request.remote_addr or "unknown")
-    key = hashlib.sha256((kind + ":" + client_id).encode()).hexdigest()
+    client_key = hashlib.sha256((kind + ":" + client_id).encode()).hexdigest()
     from datetime import datetime, timezone
     day = datetime.now(timezone.utc).date().isoformat()
+
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not supabase_url or not service_key:
+        app.logger.error("Supabase daily quota storage is not configured.")
+        return False, {"ok": False, "error": "Daily generation limits are not configured yet. Add SUPABASE_SERVICE_ROLE_KEY in Render and run the Supabase SQL migration.", "http_status": 503}
+
     try:
-        with sqlite3.connect(GENERATION_DB, timeout=10) as db:
-            db.execute("CREATE TABLE IF NOT EXISTS generation_daily_usage (day TEXT NOT NULL, kind TEXT NOT NULL, client_key TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day, kind, client_key))")
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT used FROM generation_daily_usage WHERE day=? AND kind=? AND client_key=?", (day, kind, key)).fetchone()
-            used = int(row[0]) if row else 0
-            if used >= 3:
-                db.rollback()
-                return False, {"ok": False, "error": f"Daily limit reached: 3 {kind} generations per day. Try again after 00:00 UTC.", "limit": 3, "used": used, "remaining": 0, "resets_at": "00:00 UTC"}
-            if row:
-                db.execute("UPDATE generation_daily_usage SET used=used+1 WHERE day=? AND kind=? AND client_key=?", (day, kind, key))
-            else:
-                db.execute("INSERT INTO generation_daily_usage(day,kind,client_key,used) VALUES(?,?,?,1)", (day, kind, key))
-            db.commit()
-            return True, {"limit": 3, "used": used + 1, "remaining": 2 - used, "resets_at": "00:00 UTC"}
-    except sqlite3.Error:
-        app.logger.exception("Generation limit storage error")
-        return False, {"ok": False, "error": "Could not verify the daily generation limit. Please try again shortly."}
+        result = post_json(
+            supabase_url + "/rest/v1/rpc/check_zirro_generation_limit",
+            {"p_day": day, "p_kind": kind, "p_client_key": client_key, "p_limit": GENERATION_DAILY_LIMIT},
+            {"apikey": service_key, "Authorization": "Bearer " + service_key},
+            timeout=20
+        )
+        if not isinstance(result, dict) or "allowed" not in result:
+            raise RuntimeError("Supabase returned an unexpected quota response.")
+        quota = {
+            "ok": bool(result.get("allowed")),
+            "limit": int(result.get("limit", GENERATION_DAILY_LIMIT)),
+            "used": int(result.get("used", 0)),
+            "remaining": int(result.get("remaining", 0)),
+            "resets_at": "00:00 UTC"
+        }
+        if not quota["ok"]:
+            quota["error"] = f"Daily limit reached: 3 {kind} generations per day. Try again after 00:00 UTC."
+        return bool(result.get("allowed")), quota
+    except Exception:
+        app.logger.exception("Supabase daily generation quota check failed")
+        return False, {"ok": False, "error": "Could not verify the daily generation limit in Supabase. Please try again shortly.", "http_status": 503}
 
 def _provider_error(exc, fallback):
     try:
@@ -382,7 +394,7 @@ def generate_image():
         return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
     allowed, quota = _check_generation_limit("image", body)
     if not allowed:
-        return jsonify(quota), 429
+        return jsonify(quota), int(quota.get("http_status", 429))
 
 
     openrouter_error = "OpenRouter image generation is not configured."
