@@ -47,8 +47,8 @@ def home():
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
-        "groq_fallback_configured": bool(os.getenv("GROQ_API_KEY")),
-        "chat_failover": True,
+        "groq_configured": bool(os.getenv("GROQ_API_KEY")),
+        "chat_failover": False,
         "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "video_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "video_model": os.getenv("OPENROUTER_VIDEO_MODEL", "google/veo-3.1"),
@@ -121,19 +121,18 @@ def test_plugin(plugin_id):
         "perplexity": ("PERPLEXITY_API_KEY", "https://api.perplexity.ai/chat/completions", "Perplexity AI"),
     }
     if plugin_id == "groq":
-        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
-        if not supabase_url or not proxy_token:
-            return jsonify({"ok": False, "status": "needs_setup", "message": "Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render, and add GROQ_API_KEY to Supabase Edge Function secrets."}), 503
+        token = os.getenv("GROQ_API_KEY", "").strip()
+        if not token:
+            return jsonify({"ok": False, "status": "needs_setup", "message": "Set GROQ_API_KEY in Render Environment, then redeploy."}), 503
         try:
-            result = post_json(supabase_url + "/functions/v1/zirro-provider-proxy", {"provider":"groq","path":"/models","method":"GET"}, {"x-zirro-proxy-token":proxy_token}, timeout=25)
-            if isinstance(result, dict) and result.get("error"):
-                return jsonify({"ok": False, "status": "error", "message": "Groq proxy returned an error. Check GROQ_API_KEY in Supabase."}), 502
-            return jsonify({"ok": True, "status": "connected", "message": "Groq responded through the Supabase proxy."})
+            req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": "Bearer " + token})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                if response.status == 200:
+                    return jsonify({"ok": True, "status": "connected", "message": "Groq API responded successfully."})
         except urllib.error.HTTPError as exc:
-            return jsonify({"ok": False, "status": "error", "message": "Groq proxy returned HTTP " + str(exc.code) + ". Check the Supabase function and GROQ_API_KEY."}), 502
+            return jsonify({"ok": False, "status": "error", "message": "Groq returned HTTP " + str(exc.code) + ". Check the API key, model access, and account limits."}), 502
         except Exception:
-            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq through Supabase."}), 502
+            return jsonify({"ok": False, "status": "error", "message": "Could not reach Groq. Try again shortly."}), 502
     if plugin_id in provider_checks:
         env_name, url, provider_name = provider_checks[plugin_id]
         token = os.getenv(env_name)
