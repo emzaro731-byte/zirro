@@ -1,40 +1,69 @@
 # ZIRRO AI ✦
-**Ideas become extraordinary.** A premium all-in-one AI workspace with a responsive glass-inspired UI and Python backend.
+
+**Ideas become extraordinary.** A responsive AI workspace with a glass-inspired interface and Python/Flask backend.
 
 ## Features
-- Six AI workspaces: Assistant, Writer, Code Studio, Research, Image Studio, Documents
-- Free-model routing through OpenRouter (subject to model availability and rate limits)
-- Image understanding for models that accept image inputs
-- PDF text extraction for text-based PDFs, plus TXT/Markdown/CSV/JSON attachments
-- Optional live web search using Tavily, with search results passed to the AI
-- Voice dictation in supported browsers and read-aloud responses
-- Browser-local recent conversation history, copy response controls, theme toggle
-- Health endpoint and Render deployment configuration
 
-## OpenRouter embeddings
-The backend includes `POST /api/embeddings` for text embeddings used in semantic search or document retrieval. It uses the same `OPENROUTER_API_KEY` as chat. The default model is `openai/text-embedding-3-small`; override it with `OPENROUTER_EMBEDDING_MODEL` if needed. Embeddings are separate from chat and do not generate images. Check the selected model’s current pricing and availability: embedding requests are not guaranteed to be free.\n\nExample request:\n```json\n{ "inputs": ["ZIRRO AI assistant", "Document search and retrieval"] }\n```\nSend that JSON to `/api/embeddings` with `Content-Type: application/json`.\n\n## Run locally\nPython 3.10+ recommended.
+- Six workspaces: Assistant, Writer, Code Studio, Research, Image Studio, and Documents.
+- Chat and image understanding through OpenRouter models, subject to provider/model availability.
+- Image generation through an image-output-capable OpenRouter model, when the account has the required credits.
+- Optional live web search using Tavily.
+- PDF text extraction for selectable-text PDFs, plus text-based attachments.
+- Browser-supported voice dictation and read-aloud responses.
+- Browser-local conversation history, copy controls, and a theme toggle.
+- Connector marketplace with configuration status and non-billable readiness checks.
+- Health endpoint and Render deployment configuration.
+
+## Deploy on Render
+
+1. Connect this repository to a Render Web Service.
+2. Use the included `render.yaml` settings, or configure the start command as `python app.py`.
+3. In the Render service's **Environment** settings, add:
+   - `OPENROUTER_API_KEY` — required for AI chat and provider-backed image generation.
+   - `TAVILY_API_KEY` — optional; enables live web search.
+   - `OPENROUTER_MODEL` — optional; chat model override. Default: `openrouter/free`.
+   - `OPENROUTER_IMAGE_MODEL` — optional; image generation model override. Default: `google/gemini-3.1-flash-image`.
+   - `OPENROUTER_EMBEDDING_MODEL` — optional; embedding model override. Default: `openai/text-embedding-3-small`.
+   - `APP_URL` — optional; app URL sent as provider metadata.
+4. Save the variables and deploy/redeploy.
+5. Check `/api/health` and open `/connectors.html` to see configuration status and run connector checks.
+
+**Keep all API keys in Render's environment settings. Never place secret keys in HTML, JavaScript, or a public GitHub commit.**
+
+## API endpoints
+
+- `GET /api/health` — basic service/configuration status.
+- `GET /api/plugins` — connector catalogue and safe configuration status.
+- `POST /api/plugins/<plugin_id>/test` — connector readiness test. OpenRouter and Tavily tests make a lightweight provider request; image and embedding checks only verify configuration to avoid billable generation.
+- `POST /api/chat` — AI chat; supports optional web search and supported attachments.
+- `POST /api/search` — run Tavily web search. JSON body: `{"query":"your search query"}`.
+- `POST /api/generate-image` — image generation. JSON body: `{"prompt":"describe the image"}`.
+- `POST /api/embeddings` — create embeddings. JSON body: `{"input":["first text","second text"]}`.
+
+## Image generation costs and troubleshooting
+
+An API key does not mean image generation is free. Image output requires a model that actually supports image generation and an OpenRouter/provider account with sufficient available credits. If you receive an insufficient-balance or credit error, review the provider's current model pricing and account balance, or choose another supported provider/model. ZIRRO reports provider hints in the chat where available; it cannot bypass provider billing or quotas.
+
+## Local development
+
+Python 3.10+ recommended.
 
 ```bash
 pip install -r requirements.txt
 export OPENROUTER_API_KEY="your-key"
 export OPENROUTER_MODEL="openrouter/free"
-# Optional: enables live web search
+# Optional: enables web search
 export TAVILY_API_KEY="your-tavily-key"
 python app.py
 ```
-Open http://localhost:5000.
 
-## Deploy free
-1. Create an account at [OpenRouter](https://openrouter.ai/) and create an API key. Check free-model availability and limits.
-2. Optional web search: create a key at [Tavily](https://tavily.com/).
-3. Open [Render](https://render.com/) and create a Web Service connected to this repository. The included `render.yaml` defines the service.
-4. In Render Environment, set `OPENROUTER_API_KEY`. Optionally set `TAVILY_API_KEY` for web search. Embeddings use `OPENROUTER_API_KEY`; `render.yaml` sets `OPENROUTER_EMBEDDING_MODEL`. Keep keys private; never put them in frontend files or GitHub.
-5. Deploy. Open your service URL, then visit `/api/health` to check which services are configured.
+Open `http://localhost:5000`.
 
-## Important limitations
-- The AI requires a valid provider key. Free models are not unlimited; provider quotas, supported features and availability change.
-- Image Studio supports image analysis, not image generation.
-- PDF extraction works for selectable text; scanned PDFs need OCR, which is not included.
-- Web search is optional and requires a Tavily key. It is not enabled until configured server-side.
-- Conversation history is stored in the current browser's local storage, not synced across devices or protected by user accounts.
-- This starter is not yet ready for a public multi-user launch. Add authentication, per-user quotas, abuse protection, secure file handling and a privacy policy before opening it widely.
+## Current limitations
+
+- Free-model availability, limits, and provider prices can change.
+- The connector catalogue's Custom API Endpoint is a preview; arbitrary external API/OAuth integrations are not implemented by that listing alone.
+- Image and embedding connector tests do not send generation/embedding requests, so they confirm configuration rather than guaranteed model availability or credit sufficiency.
+- PDF extraction supports selectable text; scanned PDFs need OCR, which is not included.
+- Conversation history is stored in the browser's local storage and does not sync across devices.
+- Before a public multi-user launch, add authentication, per-user quotas, abuse protection, secure file handling, monitoring, and a privacy policy.
