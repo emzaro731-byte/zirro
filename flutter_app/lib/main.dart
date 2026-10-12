@@ -76,6 +76,7 @@ class _ChatHomeState extends State<ChatHome> {
       final release = jsonDecode(response.body) as Map<String, dynamic>;
       final tag = (release['tag_name'] ?? '').toString();
       final match = RegExp(r'^build-(\d+)$').firstMatch(tag);
+      if (match == null) return;
       final latestBuild = int.tryParse(match.group(1) ?? '') ?? 0;
       if (latestBuild <= _installedBuildNumber || !mounted) return;
 
