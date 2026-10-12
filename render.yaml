@@ -19,10 +19,6 @@ services:
         value: llama-3.3-70b-versatile
       - key: OPENROUTER_IMAGE_MODEL
         value: google/gemini-3.1-flash-image
-      - key: OPENROUTER_VIDEO_MODEL
-        value: google/veo-3.1
-      - key: REPLICATE_API_TOKEN
-        sync: false
       - key: SUPABASE_URL
         value: https://vihbsfrwnslnmheowkhy.supabase.co
       - key: ZIRRO_SUPABASE_PROXY_TOKEN
