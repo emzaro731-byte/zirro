@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -43,7 +43,21 @@ jobs:
 
       - name: Build release APK
         working-directory: flutter_app
-        run: flutter build apk --release
+        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=ZIRRO_BUILD_NUMBER=${{ github.run_number }}
+
+      - name: Prepare APK for latest release
+        run: cp flutter_app/build/app/outputs/flutter-apk/app-release.apk flutter_app/build/app/outputs/flutter-apk/zirro-ai-latest.apk
+
+      - name: Publish latest APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ZIRRO AI Android build ${{ github.run_number }}
+          body: |
+            Automated ZIRRO AI Android build from the main branch.
+            Download zirro-ai-latest.apk and confirm installation on Android.
+          files: flutter_app/build/app/outputs/flutter-apk/zirro-ai-latest.apk
+          make_latest: true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
