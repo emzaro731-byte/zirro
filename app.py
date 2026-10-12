@@ -247,69 +247,6 @@ def embeddings():
         app.logger.exception("OpenRouter embeddings request failed")
         return jsonify({"error": "Could not reach OpenRouter embeddings. Try again shortly.", "model": model}), 502
 
-@app.post("/api/generate-image")
-def generate_image():
-    """Generate an image using an OpenRouter model that supports image output."""
-    body = request.get_json(silent=True) or {}
-    # User-supplied keys are used for this request only and are never persisted.
-    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY")
-    if not token:
-        return jsonify({"error": "Add your OpenRouter API key with “My API Key”, or configure OPENROUTER_API_KEY in Render."}), 503
-    prompt = str(body.get("prompt", "")).strip()
-    if not prompt:
-        return jsonify({"error": "Describe the image you want to create."}), 400
-    if len(prompt) > 4000:
-        return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
-    model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image")
-    try:
-        result = post_json("https://openrouter.ai/api/v1/chat/completions", {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "modalities": ["image", "text"]
-        }, {
-            "Authorization": "Bearer " + token,
-            "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
-            "X-Title": "ZIRRO AI Image Studio"
-        }, timeout=120)
-        if isinstance(result, dict) and result.get("error"):
-            detail = result["error"]
-            if isinstance(detail, dict):
-                detail = detail.get("message", "Image generation request failed")
-            return jsonify({"error": str(detail)[:350], "model": model}), 502
-        message = result.get("choices", [{}])[0].get("message", {})
-        images = message.get("images") or []
-        image_url = None
-        if images and isinstance(images[0], dict):
-            image_url = (images[0].get("image_url") or {}).get("url")
-        if not image_url:
-            for part in message.get("content", []) if isinstance(message.get("content"), list) else []:
-                if isinstance(part, dict) and part.get("type") in ("image_url", "image"):
-                    image_url = (part.get("image_url") or {}).get("url") or part.get("url")
-                    if image_url:
-                        break
-        if not isinstance(image_url, str) or not image_url.startswith("data:image/"):
-            return jsonify({"error": "The selected model did not return an image. Check that OPENROUTER_IMAGE_MODEL supports image generation, then try again.", "model": result.get("model", model)}), 502
-        return jsonify({"ok": True, "image": image_url, "model": result.get("model", model)})
-    except urllib.error.HTTPError as exc:
-        try:
-            error_body = json.loads(exc.read().decode()).get("error", {})
-            detail = error_body.get("message", "Image generation request failed") if isinstance(error_body, dict) else str(error_body)
-        except Exception:
-            detail = "Image generation request failed"
-        detail_text = str(detail)[:350]
-        lower_detail = detail_text.lower()
-        if any(word in lower_detail for word in ("insufficient", "balance", "credit", "requires at least $1")):
-            return jsonify({"error": "Image provider error: " + detail_text,
-                            "hint": "The provider requires available account credits for image output. Add credits in your OpenRouter account or choose a model/provider with pricing you can afford. Setting an API key alone does not provide free image generation.",
-                            "model": model}), 402
-        return jsonify({"error": "Image provider error: " + detail_text,
-                        "hint": "Check that OPENROUTER_IMAGE_MODEL supports image output and that the provider is available."}), 502
-    except Exception:
-        app.logger.exception("Image generation failed")
-        return jsonify({"error": "Could not reach the image provider. Please try again shortly."}), 502
-
-
-
 def _provider_error(exc, fallback):
     try:
         data = json.loads(exc.read().decode())
@@ -321,171 +258,251 @@ def _provider_error(exc, fallback):
         return fallback
 
 
+def _kie_key():
+    return os.getenv("KIE_AI_API_KEY", "").strip()
+
+
+def _kie_request(path, payload=None, timeout=45):
+    token = _kie_key()
+    if not token:
+        raise RuntimeError("Add KIE_AI_API_KEY to Render Environment, then redeploy.")
+    url = "https://api.kie.ai" + path
+    headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+    if payload is None:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+    else:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        result = json.loads(response.read().decode())
+    if isinstance(result, dict) and result.get("code") not in (None, 0, 200):
+        raise RuntimeError(str(result.get("msg") or result.get("message") or "Kie AI request failed")[:400])
+    return result
+
+
+def _kie_create_task(model, task_input, timeout=45):
+    result = _kie_request("/api/v1/jobs/createTask", {
+        "model": model,
+        "input": task_input
+    }, timeout=timeout)
+    data = result.get("data") or {}
+    task_id = data.get("taskId") or data.get("task_id") or result.get("taskId")
+    if not task_id:
+        raise RuntimeError(str(result.get("msg") or "Kie AI did not return a task ID.")[:350])
+    return str(task_id)
+
+
+def _kie_task(task_id):
+    from urllib.parse import urlencode
+    result = _kie_request("/api/v1/jobs/recordInfo?" + urlencode({"taskId": task_id}), timeout=30)
+    data = result.get("data") or {}
+    raw = data.get("resultJson") or data.get("result_json") or "{}"
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = {}
+    else:
+        parsed = raw if isinstance(raw, dict) else {}
+    urls = parsed.get("resultUrls") or parsed.get("result_urls") or []
+    if isinstance(urls, str):
+        urls = [urls]
+    response_data = (data.get("response") or {}).get("data") if isinstance(data.get("response"), dict) else None
+    if isinstance(response_data, list):
+        for item in response_data:
+            if isinstance(item, dict):
+                url = item.get("audio_url") or item.get("video_url") or item.get("image_url") or item.get("url")
+                if url:
+                    urls.append(url)
+    if not urls:
+        for key in ("video_url", "audio_url", "image_url", "url"):
+            if parsed.get(key):
+                urls.append(parsed[key])
+    return {
+        "task_id": str(data.get("taskId") or task_id),
+        "status": str(data.get("state") or data.get("status") or "unknown").lower(),
+        "urls": [u for u in urls if isinstance(u, str) and u.startswith(("https://", "http://"))],
+        "error": data.get("failMsg") or data.get("error"),
+        "model": data.get("model"),
+        "credits_consumed": data.get("creditsConsumed")
+    }
+
+
+def _kie_wait_for_result(task_id, attempts=35, delay=2):
+    import time
+    latest = {"task_id": task_id, "status": "waiting", "urls": []}
+    for _ in range(attempts):
+        latest = _kie_task(task_id)
+        if latest["status"] == "success" and latest["urls"]:
+            return latest
+        if latest["status"] in ("fail", "failed", "error", "cancelled", "canceled"):
+            raise RuntimeError(str(latest.get("error") or "Kie AI generation failed.")[:400])
+        time.sleep(delay)
+    return latest
+
+
+@app.post("/api/generate-image")
+def generate_image():
+    """Try OpenRouter image generation first, then fall back to Kie AI."""
+    body = request.get_json(silent=True) or {}
+    prompt = str(body.get("prompt", "")).strip()
+    if not prompt:
+        return jsonify({"error": "Describe the image you want to create."}), 400
+    if len(prompt) > 4000:
+        return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
+
+    openrouter_error = "OpenRouter image generation is not configured."
+    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY", "").strip()
+    if token:
+        model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image")
+        try:
+            result = post_json("https://openrouter.ai/api/v1/chat/completions", {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "modalities": ["image", "text"]
+            }, {
+                "Authorization": "Bearer " + token,
+                "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
+                "X-Title": "ZIRRO AI Image Studio"
+            }, timeout=90)
+            message = result.get("choices", [{}])[0].get("message", {})
+            images = message.get("images") or []
+            image_url = (images[0].get("image_url") or {}).get("url") if images and isinstance(images[0], dict) else None
+            if not image_url and isinstance(message.get("content"), list):
+                for part in message["content"]:
+                    if isinstance(part, dict) and part.get("type") in ("image_url", "image"):
+                        image_url = (part.get("image_url") or {}).get("url") or part.get("url")
+                        if image_url:
+                            break
+            if isinstance(image_url, str) and image_url.startswith(("data:image/", "https://", "http://")):
+                return jsonify({"ok": True, "image": image_url, "model": result.get("model", model), "provider": "OpenRouter", "fallback_used": False})
+            openrouter_error = "OpenRouter did not return an image. " + str(message.get("content", ""))[:180]
+        except urllib.error.HTTPError as exc:
+            openrouter_error = "OpenRouter error: " + _provider_error(exc, "Image generation request failed.")
+        except Exception as exc:
+            app.logger.warning("OpenRouter image generation failed; trying Kie AI: %s", exc)
+            openrouter_error = str(exc)[:250]
+
+    if not _kie_key():
+        return jsonify({"error": openrouter_error, "hint": "Add KIE_AI_API_KEY in Render Environment to enable automatic Kie AI fallback."}), 502
+    try:
+        task_id = _kie_create_task("gpt-image-2-text-to-image", {
+            "prompt": prompt,
+            "aspect_ratio": str(body.get("aspect_ratio") or "auto")
+        })
+        result = _kie_wait_for_result(task_id, attempts=40, delay=2)
+        if result["status"] == "success" and result["urls"]:
+            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "fallback_used": True, "task_id": task_id})
+        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "fallback_used": True}), 202
+    except urllib.error.HTTPError as exc:
+        return jsonify({"error": openrouter_error, "fallback_error": _provider_error(exc, "Kie AI image generation failed.")}), 502
+    except Exception as exc:
+        app.logger.exception("Kie AI image fallback failed")
+        return jsonify({"error": openrouter_error, "fallback_error": str(exc)[:350], "hint": "Check KIE_AI_API_KEY, Kie AI credits, and the selected model's availability."}), 502
+
+
 @app.get("/api/video/models")
 def video_models():
-    token = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "Configure OPENROUTER_API_KEY in Render to list available video models."}), 503
-    try:
-        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/models",
-            headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=25) as response:
-            data = json.loads(response.read().decode())
-        models = []
-        for item in data.get("data", [])[:100]:
-            models.append({"id": item.get("id"), "name": item.get("name") or item.get("id"),
-                "supported_durations": item.get("supported_durations", []),
-                "supported_resolutions": item.get("supported_resolutions", []),
-                "supported_aspect_ratios": item.get("supported_aspect_ratios", []),
-                "pricing_skus": item.get("pricing_skus", {})})
-        return jsonify({"ok": True, "models": models})
-    except urllib.error.HTTPError as exc:
-        return jsonify({"ok": False, "error": "OpenRouter model discovery failed: " + _provider_error(exc, "Provider request failed")}), 502
-    except Exception:
-        app.logger.exception("Video model discovery failed")
-        return jsonify({"ok": False, "error": "Could not load video models right now."}), 502
+    if not _kie_key():
+        return jsonify({"ok": False, "error": "Configure KIE_AI_API_KEY in Render to enable video generation."}), 503
+    return jsonify({"ok": True, "provider": "Kie AI", "models": [
+        {"id": "runway", "name": "Runway", "supported_durations": [5, 10], "supported_resolutions": ["720p", "1080p"], "supported_aspect_ratios": ["16:9", "9:16"]}
+    ]})
 
 
 @app.post("/api/generate-video")
 def generate_video():
     body = request.get_json(silent=True) or {}
-    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "Add OPENROUTER_API_KEY in Render Environment. Video generation is not included automatically with a chat key's free quota."}), 503
+    if not _kie_key():
+        return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
         return jsonify({"ok": False, "error": "Describe the video you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"ok": False, "error": "Prompt must be 4,000 characters or fewer."}), 413
-    model = str(body.get("model") or os.getenv("OPENROUTER_VIDEO_MODEL", "google/veo-3.1")).strip()
-    allowed_durations = (4, 5, 6, 8, 10, 12)
-    try:
-        duration = int(body.get("duration", 5))
-    except (TypeError, ValueError):
-        duration = 5
-    if duration not in allowed_durations:
-        return jsonify({"ok": False, "error": "Duration must be one of: 4, 5, 6, 8, 10, or 12 seconds. The selected model may support fewer options."}), 400
+    duration = 10 if str(body.get("duration", 5)) == "10" else 5
     resolution = str(body.get("resolution", "720p"))
+    if resolution not in ("720p", "1080p"):
+        resolution = "720p"
+    if duration == 10:
+        resolution = "720p"
     aspect_ratio = str(body.get("aspect_ratio", "16:9"))
-    payload = {"model": model, "prompt": prompt, "duration": duration,
-               "resolution": resolution, "aspect_ratio": aspect_ratio,
-               "generate_audio": bool(body.get("generate_audio", True))}
+    if aspect_ratio not in ("16:9", "9:16"):
+        aspect_ratio = "16:9"
+    task_input = {"prompt": prompt, "duration": duration, "quality": resolution,
+                  "aspect_ratio": aspect_ratio, "watermark": ""}
     try:
-        result = post_json("https://openrouter.ai/api/v1/videos", payload, {
-            "Authorization": "Bearer " + token, "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
-            "X-Title": "ZIRRO AI Video Studio"}, timeout=45)
-        job_id = result.get("id") or result.get("job_id")
-        if not job_id:
-            return jsonify({"ok": False, "error": "OpenRouter did not return a video job ID.", "details": result}), 502
-        return jsonify({"ok": True, "job_id": str(job_id), "status": result.get("status", "pending"),
-                        "model": model, "message": "Video job submitted. It may take several minutes and may incur provider charges."}), 202
+        task_id = _kie_create_task("runway", task_input, timeout=60)
+        return jsonify({"ok": True, "job_id": task_id, "status": "waiting", "model": "runway",
+                        "provider": "Kie AI", "message": "Kie AI video job submitted. Generation may take several minutes and may use credits."}), 202
     except urllib.error.HTTPError as exc:
-        detail = _provider_error(exc, "Video generation request failed")
+        detail = _provider_error(exc, "Kie AI video generation failed.")
         status = 402 if exc.code == 402 or any(w in detail.lower() for w in ("balance", "credit", "insufficient")) else 502
-        return jsonify({"ok": False, "error": detail, "hint": "Check the selected model's current pricing, your OpenRouter balance, and model-supported duration/resolution."}), status
-    except Exception:
-        app.logger.exception("Video generation request failed")
-        return jsonify({"ok": False, "error": "Could not reach OpenRouter video generation. Try again shortly."}), 502
+        return jsonify({"ok": False, "error": detail, "hint": "Check your Kie AI key, credits, and model requirements."}), status
+    except Exception as exc:
+        app.logger.exception("Kie AI video generation request failed")
+        return jsonify({"ok": False, "error": str(exc)[:350]}), 502
 
 
 @app.get("/api/video/status/<job_id>")
 def video_status(job_id):
     if not job_id or len(job_id) > 180 or not all(c.isalnum() or c in "-_." for c in job_id):
         return jsonify({"ok": False, "error": "Invalid video job ID."}), 400
-    token = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "OPENROUTER_API_KEY is not configured."}), 503
     try:
-        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/" + job_id,
-            headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=25) as response:
-            result = json.loads(response.read().decode())
-        urls = result.get("unsigned_urls") or []
-        return jsonify({"ok": True, "job_id": job_id, "status": result.get("status", "unknown"),
-                        "error": result.get("error"), "video_url": urls[0] if urls else None,
-                        "usage": result.get("usage"), "model": result.get("model")})
+        task = _kie_task(job_id)
+        return jsonify({"ok": True, "job_id": job_id, "status": task["status"],
+                        "error": task["error"], "video_url": task["urls"][0] if task["urls"] else None,
+                        "provider": "Kie AI", "credits_consumed": task["credits_consumed"]})
     except urllib.error.HTTPError as exc:
-        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read video job status.")}), 502
-    except Exception:
-        app.logger.exception("Video status check failed")
-        return jsonify({"ok": False, "error": "Could not check video status. Try again shortly."}), 502
-
-
-@app.get("/api/video/content/<job_id>")
-def video_content(job_id):
-    if not job_id or len(job_id) > 180 or not all(c.isalnum() or c in "-_." for c in job_id):
-        return jsonify({"ok": False, "error": "Invalid video job ID."}), 400
-    token = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "OPENROUTER_API_KEY is not configured."}), 503
-    try:
-        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/" + job_id + "/content?index=0",
-            headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=90) as upstream:
-            content = upstream.read()
-            content_type = upstream.headers.get("Content-Type", "video/mp4")
-        return Response(content, mimetype=content_type, headers={"Content-Disposition": 'attachment; filename="zirro-video.mp4"', "Cache-Control": "no-store"})
-    except urllib.error.HTTPError as exc:
-        return jsonify({"ok": False, "error": _provider_error(exc, "Video content is not ready yet.")}), 502
-    except Exception:
-        app.logger.exception("Video download failed")
-        return jsonify({"ok": False, "error": "Could not download the generated video."}), 502
+        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read Kie AI video status.")}), 502
+    except Exception as exc:
+        app.logger.exception("Kie AI video status check failed")
+        return jsonify({"ok": False, "error": str(exc)[:350]}), 502
 
 
 @app.post("/api/generate-music")
 def generate_music():
     body = request.get_json(silent=True) or {}
-    token = os.getenv("REPLICATE_API_TOKEN", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "Music generation needs a Replicate API token. Add REPLICATE_API_TOKEN in Render Environment; OpenRouter does not currently provide general text-to-music generation through its standard audio endpoint.", "setup_url": "https://replicate.com/account/api-tokens"}), 503
+    if not _kie_key():
+        return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
         return jsonify({"ok": False, "error": "Describe the music you want to create."}), 400
     if len(prompt) > 2000:
         return jsonify({"ok": False, "error": "Music prompt must be 2,000 characters or fewer."}), 413
     try:
-        duration = int(body.get("duration", 8))
+        duration = max(10, min(int(body.get("duration", 30)), 60))
     except (TypeError, ValueError):
-        duration = 8
-    duration = max(5, min(duration, 30))
-    payload = {"input": {"prompt": prompt[:2000], "model_version": "stereo-large",
-                         "output_format": "mp3", "duration": duration}}
+        duration = 30
+    title = str(body.get("title") or prompt[:70]).strip()[:80] or "ZIRRO AI Music"
+    task_input = {"custom_mode": True, "instrumental": True, "model": "V6",
+                  "style": prompt[:1000], "title": title, "duration": duration}
     try:
-        result = post_json("https://api.replicate.com/v1/models/meta/musicgen/predictions", payload,
-            {"Authorization": "Bearer " + token, "Prefer": "wait=1"}, timeout=45)
-        return jsonify({"ok": True, "prediction_id": result.get("id"), "status": result.get("status", "starting"),
-                        "music_url": result.get("output") if isinstance(result.get("output"), str) else (result.get("output") or [None])[0],
-                        "message": "Music generation submitted. Replicate usage is billed by its current model pricing."}), 202
+        task_id = _kie_create_task("ai-music-api/generate", task_input, timeout=60)
+        return jsonify({"ok": True, "prediction_id": task_id, "status": "waiting",
+                        "message": "Suno music job submitted through Kie AI. It may use credits."}), 202
     except urllib.error.HTTPError as exc:
-        return jsonify({"ok": False, "error": _provider_error(exc, "Music generation request failed."),
-                        "hint": "Check your Replicate token, account limits, and current MusicGen model availability."}), 502
-    except Exception:
-        app.logger.exception("Music generation request failed")
-        return jsonify({"ok": False, "error": "Could not reach the music provider right now."}), 502
+        return jsonify({"ok": False, "error": _provider_error(exc, "Kie AI music generation failed."),
+                        "hint": "Check KIE_AI_API_KEY, Kie AI credits, and Suno model availability."}), 502
+    except Exception as exc:
+        app.logger.exception("Kie AI music generation request failed")
+        return jsonify({"ok": False, "error": str(exc)[:350]}), 502
 
 
 @app.get("/api/music/status/<prediction_id>")
 def music_status(prediction_id):
     if not prediction_id or len(prediction_id) > 180 or not all(c.isalnum() or c in "-_." for c in prediction_id):
-        return jsonify({"ok": False, "error": "Invalid music prediction ID."}), 400
-    token = os.getenv("REPLICATE_API_TOKEN", "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "REPLICATE_API_TOKEN is not configured."}), 503
+        return jsonify({"ok": False, "error": "Invalid music task ID."}), 400
     try:
-        req = urllib.request.Request("https://api.replicate.com/v1/predictions/" + prediction_id,
-            headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=25) as response:
-            result = json.loads(response.read().decode())
-        output = result.get("output")
-        if isinstance(output, list):
-            output = output[0] if output else None
-        return jsonify({"ok": True, "prediction_id": prediction_id, "status": result.get("status", "unknown"),
-                        "music_url": output if isinstance(output, str) else None, "error": result.get("error")})
+        task = _kie_task(prediction_id)
+        return jsonify({"ok": True, "prediction_id": prediction_id, "status": task["status"],
+                        "music_url": task["urls"][0] if task["urls"] else None,
+                        "error": task["error"], "provider": "Kie AI",
+                        "credits_consumed": task["credits_consumed"]})
     except urllib.error.HTTPError as exc:
-        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read music job status.")}), 502
-    except Exception:
-        app.logger.exception("Music status check failed")
-        return jsonify({"ok": False, "error": "Could not check music status right now."}), 502
+        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read Kie AI music status.")}), 502
+    except Exception as exc:
+        app.logger.exception("Kie AI music status check failed")
+        return jsonify({"ok": False, "error": str(exc)[:350]}), 502
 
 
 @app.post("/api/chat")
