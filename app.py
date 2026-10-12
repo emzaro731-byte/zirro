@@ -45,7 +45,7 @@ def home():
 @app.get("/api/health")
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
-        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image"),
+        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image-preview"),
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
         "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "embedding_model": os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
@@ -107,7 +107,7 @@ def generate_image():
         return jsonify({"error": "Describe the image you want to create."}), 400
     if len(prompt) > 4000:
         return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
-    model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image")
+    model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image-preview")
     try:
         result = post_json("https://openrouter.ai/api/v1/chat/completions", {
             "model": model,
