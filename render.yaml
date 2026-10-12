@@ -11,6 +11,8 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: openrouter/free
+      - key: OPENROUTER_IMAGE_MODEL
+        value: google/gemini-2.5-flash-image-preview
       - key: TAVILY_API_KEY
         sync: false
       - key: OPENROUTER_EMBEDDING_MODEL
