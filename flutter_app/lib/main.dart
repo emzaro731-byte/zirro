@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 void main() => runApp(const ZirroApp());
 
@@ -65,7 +64,6 @@ class _ChatHomeState extends State<ChatHome> {
   final _composer = TextEditingController();
   final _scroll = ScrollController();
   final List<ChatMessage> _messages = [];
-  bool _showAccount = true;
 
   @override
   void dispose() {
@@ -98,64 +96,6 @@ class _ChatHomeState extends State<ChatHome> {
     });
   }
 
-  Future<void> _openSignInGuide() async {
-    final uri = Uri.parse(
-      'https://developers.openai.com/siwc/token-sharing-open-source',
-    );
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the OpenAI guide.')),
-      );
-    }
-  }
-
-  void _showSetupNotice() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: _panel,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.lock_outline_rounded,
-                  color: _accent, size: 34),
-              const SizedBox(height: 14),
-              const Text(
-                'ChatGPT connection is not active yet',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'This is the first Flutter UI scaffold. The official local '
-                'authentication/runtime adapter still needs to be implemented '
-                'and tested on Android. ZIRRO will never ask you to type your '
-                'ChatGPT password into this app.',
-                style: TextStyle(color: Color(0xFFB3BDCD), height: 1.45),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _openSignInGuide();
-                  },
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Open official setup guide'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,73 +123,16 @@ class _ChatHomeState extends State<ChatHome> {
                 style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: .4)),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Account settings',
-            onPressed: _showSetupNotice,
-            icon: const Icon(Icons.account_circle_outlined),
-          ),
-          const SizedBox(width: 6),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            if (_showAccount) _accountCard(),
             Expanded(
               child: _messages.isEmpty ? _welcome() : _messageList(),
             ),
             _composerBar(),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _accountCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _line),
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 42,
-            width: 42,
-            decoration: BoxDecoration(
-              color: _accent.withValues(alpha: .13),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.account_tree_outlined, color: _accent),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ChatGPT account',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                SizedBox(height: 3),
-                Text('Not connected',
-                    style: TextStyle(color: Color(0xFF9CA8BB), fontSize: 12)),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: _showSetupNotice,
-            child: const Text('Connect'),
-          ),
-          IconButton(
-            tooltip: 'Hide account card',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => setState(() => _showAccount = false),
-            icon: const Icon(Icons.close_rounded, size: 18),
-          ),
-        ],
       ),
     );
   }
