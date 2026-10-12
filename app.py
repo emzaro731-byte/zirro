@@ -51,7 +51,7 @@ def health():
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
         "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "embedding_model": os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
-        "pdf_support": True})
+        "pdf_support": True, "image_upload": True, "video_upload": "sampled_frames", "text_file_upload": True})
 
 
 PLUGIN_CATALOG = [
@@ -335,7 +335,17 @@ def chat():
         if kind == "image":
             data = item.get("data", "")
             if isinstance(data, str) and data.startswith("data:image/") and len(data) < 8*1024*1024:
+                parts.append({"type":"text","text":"Attached image: " + str(item.get("name","image"))})
                 parts.append({"type":"image_url","image_url":{"url":data}})
+        elif kind == "video":
+            frames = item.get("frames") or []
+            parts.append({"type":"text","text":"Attached video: " + str(item.get("name","video")) + ". The following are sampled frames from the video in chronological order; describe visible events and note that these are sampled frames, not the full video."})
+            for frame in frames[:4]:
+                data = frame.get("data", "") if isinstance(frame, dict) else ""
+                if isinstance(data, str) and data.startswith("data:image/") and len(data) < 2*1024*1024:
+                    stamp = frame.get("time", "?")
+                    parts.append({"type":"text","text":"Video frame at approximately " + str(stamp) + " seconds:"})
+                    parts.append({"type":"image_url","image_url":{"url":data}})
         elif kind == "text" and isinstance(item.get("text"), str):
             parts.append({"type":"text","text":"Attached file "+str(item.get("name","file"))+":\\n"+item["text"][:16000]})
         elif kind == "pdf" and isinstance(item.get("data"), str):
