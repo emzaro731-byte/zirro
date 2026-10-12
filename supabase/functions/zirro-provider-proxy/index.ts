@@ -1,6 +1,6 @@
 // Supabase Edge Function: keeps provider API keys server-side.
 // Configure these Supabase Edge Function secrets:
-// FAL_KEY, KIE_AI_API_KEY, XAI_API_KEY, ZIRRO_SUPABASE_PROXY_TOKEN
+// FAL_KEY, KIE_AI_API_KEY, GROQ_API_KEY, ZIRRO_SUPABASE_PROXY_TOKEN
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-zirro-proxy-token",
@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
   let base = "";
   let secretName = "";
   let authScheme = "Bearer";
-  if (provider === "grok") {
-    base = "https://api.x.ai/v1";
-    secretName = "XAI_API_KEY";
-    if (!["/chat/completions", "/models"].includes(path)) return json({ error: "Grok path not allowed" }, 400);
+  if (provider === "groq") {
+    base = "https://api.groq.com/openai/v1";
+    secretName = "GROQ_API_KEY";
+    if (!["/chat/completions", "/models"].includes(path)) return json({ error: "Groq path not allowed" }, 400);
   } else if (provider === "fal") {
     base = "https://queue.fal.run";
     secretName = "FAL_KEY";
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     if (!path.startsWith("/api/v1/") || !/^\/[a-zA-Z0-9._/-]+$/.test(path))
       return json({ error: "Only Kie AI /api/v1 routes are allowed" }, 400);
   } else {
-    return json({ error: "Provider must be grok, fal, or kie" }, 400);
+    return json({ error: "Provider must be groq, fal, or kie" }, 400);
   }
 
   const key = Deno.env.get(secretName) || "";
