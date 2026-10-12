@@ -450,7 +450,7 @@ def generate_image():
             app.logger.warning("OpenRouter image generation failed; trying Kie AI: %s", exc)
             openrouter_error = str(exc)[:250]
 
-    if not _kie_key():
+    if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"error": openrouter_error, "hint": "Add KIE_AI_API_KEY in Render Environment to enable automatic Kie AI fallback."}), 502
     try:
         task_id = _kie_create_task("gpt-image-2-text-to-image", {
@@ -486,7 +486,7 @@ def image_status(task_id):
 
 @app.get("/api/video/models")
 def video_models():
-    if not _kie_key():
+    if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"ok": False, "error": "Configure KIE_AI_API_KEY in Render to enable video generation."}), 503
     return jsonify({"ok": True, "provider": "Kie AI", "models": [
         {"id": "runway", "name": "Runway", "supported_durations": [5, 10], "supported_resolutions": ["720p", "1080p"], "supported_aspect_ratios": ["16:9", "9:16"]}
@@ -496,7 +496,7 @@ def video_models():
 @app.post("/api/generate-video")
 def generate_video():
     body = request.get_json(silent=True) or {}
-    if not _kie_key():
+    if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
@@ -550,7 +550,7 @@ def video_status(job_id):
 @app.post("/api/generate-music")
 def generate_music():
     body = request.get_json(silent=True) or {}
-    if not _kie_key():
+    if not _kie_key() and not _kie_proxy_configured():
         return jsonify({"ok": False, "error": "Add KIE_AI_API_KEY in Render Environment, then redeploy."}), 503
     prompt = str(body.get("prompt", "")).strip()
     if not prompt:
