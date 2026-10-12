@@ -45,7 +45,7 @@ def home():
 @app.get("/api/health")
 def health():
     return jsonify({"ok": True, "app": "ZIRRO AI",
-        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),\n        "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image"),
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
         "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "embedding_model": os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
@@ -94,6 +94,59 @@ def embeddings():
     except Exception:
         app.logger.exception("OpenRouter embeddings request failed")
         return jsonify({"error": "Could not reach OpenRouter embeddings. Try again shortly.", "model": model}), 502
+
+@app.post("/api/generate-image")
+def generate_image():
+    """Generate an image using an OpenRouter model that supports image output."""
+    token = os.getenv("OPENROUTER_API_KEY")
+    if not token:
+        return jsonify({"error": "Add OPENROUTER_API_KEY in Render Environment."}), 503
+    body = request.get_json(silent=True) or {}
+    prompt = str(body.get("prompt", "")).strip()
+    if not prompt:
+        return jsonify({"error": "Describe the image you want to create."}), 400
+    if len(prompt) > 4000:
+        return jsonify({"error": "Prompt is too long (maximum 4,000 characters)."}), 413
+    model = os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-2.5-flash-image")
+    try:
+        result = post_json("https://openrouter.ai/api/v1/chat/completions", {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "modalities": ["image", "text"]
+        }, {
+            "Authorization": "Bearer " + token,
+            "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
+            "X-Title": "ZIRRO AI Image Studio"
+        }, timeout=120)
+        if isinstance(result, dict) and result.get("error"):
+            detail = result["error"]
+            if isinstance(detail, dict):
+                detail = detail.get("message", "Image generation request failed")
+            return jsonify({"error": str(detail)[:350], "model": model}), 502
+        message = result.get("choices", [{}])[0].get("message", {})
+        images = message.get("images") or []
+        image_url = None
+        if images and isinstance(images[0], dict):
+            image_url = (images[0].get("image_url") or {}).get("url")
+        if not image_url:
+            for part in message.get("content", []) if isinstance(message.get("content"), list) else []:
+                if isinstance(part, dict) and part.get("type") in ("image_url", "image"):
+                    image_url = (part.get("image_url") or {}).get("url") or part.get("url")
+                    if image_url:
+                        break
+        if not isinstance(image_url, str) or not image_url.startswith("data:image/"):
+            return jsonify({"error": "The selected model did not return an image. Check that OPENROUTER_IMAGE_MODEL supports image generation, then try again.", "model": result.get("model", model)}), 502
+        return jsonify({"ok": True, "image": image_url, "model": result.get("model", model)})
+    except urllib.error.HTTPError as exc:
+        try:
+            error_body = json.loads(exc.read().decode()).get("error", {})
+            detail = error_body.get("message", "Image generation request failed") if isinstance(error_body, dict) else str(error_body)
+        except Exception:
+            detail = "Image generation request failed"
+        return jsonify({"error": "Image provider error: " + str(detail)[:350]}), 502
+    except Exception:
+        app.logger.exception("Image generation failed")
+        return jsonify({"error": "Could not reach the image provider. Please try again shortly."}), 502
 
 @app.post("/api/chat")
 def chat():
