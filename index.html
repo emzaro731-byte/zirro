@@ -61,19 +61,131 @@ body.light{background:#f3f4fb!important}
 .nav button:hover{transform:translateX(2px)}
 .logo,.orb{box-shadow:0 0 32px rgba(146,117,255,.22),inset 0 1px rgba(255,255,255,.35)}
 @media(prefers-reduced-motion:reduce){.nav button{transition:none}.nav button:hover{transform:none}}
+
+/* ChatGPT-inspired interface refresh */
+:root{
+ --bg:#212121;--panel:#171717;--panel2:#2f2f2f;--line:#ffffff1a;
+ --muted:#b4b4b4;--text:#ececec;--purple:#a8a8a8;--blue:#d4d4d4;--mint:#a3a3a3;
+ color-scheme:dark
+}
+html,body{min-height:100%;background:#212121!important;color:#ececec}
+body{background:#212121!important;letter-spacing:0;font-family:Arial,Helvetica,sans-serif}
+.app{grid-template-columns:260px minmax(0,1fr);background:#212121}
+.sidebar{height:100dvh;position:sticky;top:0;padding:14px 10px 12px;gap:20px;background:#171717;border-right:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.brand{padding:8px 10px;gap:10px}
+.logo{width:30px;height:30px;border-radius:9px;background:#ececec;color:#171717;font-size:18px;box-shadow:none}
+.brand strong{font:700 17px Arial,Helvetica,sans-serif;letter-spacing:.5px}
+.brand small{font-size:9px;letter-spacing:1.2px;color:#a3a3a3}
+.newchat{display:flex;align-items:center;justify-content:flex-start;text-align:left;padding:12px 13px;border-radius:10px;background:transparent;color:#ececec;border:1px solid #ffffff25;box-shadow:none;font-weight:500}
+.newchat:hover{background:#ffffff10;transform:none;filter:none}
+.navlabel{font-size:11px;letter-spacing:.3px;color:#a3a3a3;padding:0 12px}
+.nav{gap:2px}
+.nav button{padding:10px 12px;border-radius:9px;border:0;color:#d4d4d4;font-size:13px;gap:11px}
+.nav button.active,.nav button:hover{background:#2f2f2f;border-color:transparent;color:#fff;box-shadow:none}
+.nav button.active{box-shadow:none}
+.nav .ico{font-size:16px;width:18px;color:#d4d4d4}
+.history{gap:1px;overflow:auto}
+.history button{color:#d4d4d4;border-radius:8px;padding:9px 11px;font-size:12px}
+.history button:hover{background:#ffffff0c;color:#fff}
+.profile{border-top:1px solid #ffffff18;padding:13px 7px 3px}
+.avatar{width:30px;height:30px;border-radius:50%;background:#6b8e78;color:white;box-shadow:none}
+.profile strong{font-size:12px!important;font-weight:500}
+.profile small{color:#a3a3a3}
+.main{min-height:100dvh;background:#212121}
+.topbar{height:58px;padding:0 22px;background:#212121;position:sticky;top:0;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:4}
+.modelpill{padding:8px 10px;border:0;border-radius:9px;background:transparent;color:#ececec;font-size:14px;font-weight:600;box-shadow:none}
+.modelpill .dot{display:none}
+.topactions{gap:6px}
+.ghost{border:0;background:transparent;color:#d4d4d4;border-radius:8px;padding:8px 10px;font-size:12px}
+.ghost:hover{background:#ffffff12;border-color:transparent}
+.content{width:min(900px,100%);padding:18px 24px 14px;flex:1;display:flex;flex-direction:column}
+.hero{margin:auto auto 28px;max-width:700px;text-align:center}
+.orb{display:none}
+.hero .eyebrow{display:none}
+.hero h1{font:500 clamp(28px,4vw,36px)/1.25 Arial,Helvetica,sans-serif;letter-spacing:-.8px;color:#ececec;margin:0 0 12px}
+.hero h1 span{color:inherit;background:none}
+.hero p{color:#b4b4b4;font-size:14px;line-height:1.6;max-width:500px}
+.featurebar{display:none!important}
+.suggestions{width:min(680px,100%);gap:10px;margin:0 auto 18px}
+.suggestion{min-height:98px;padding:14px 15px;border:1px solid #ffffff20;border-radius:15px;background:transparent;box-shadow:none;transition:background .15s,border-color .15s;transform:none}
+.suggestion:after{display:none}
+.suggestion:hover{transform:none;background:#2a2a2a;border-color:#ffffff30}
+.sicon{width:28px;height:28px;display:grid;place-items:center;border:0;background:#ffffff12;border-radius:8px;color:#e5e5e5;font-size:15px;margin-bottom:10px}
+.suggestion strong{font-size:13px;font-weight:500;color:#ececec}
+.suggestion small{display:block;color:#a3a3a3;font-size:11px;line-height:1.45}
+.chat{width:min(768px,100%);gap:26px;margin:0 auto}
+.message{font-size:15px;line-height:1.75;gap:12px;color:#ececec;animation:messagein .15s ease-out}
+.message.user{justify-content:flex-end}
+.message.user .bubble{max-width:82%;padding:11px 16px;background:#2f2f2f;border:0;border-radius:22px;color:#ececec}
+.message.assistant .bubble{padding:1px 0;flex:1}
+.miniavatar{display:none}
+.message.assistant .bubble p{margin:0 0 14px}
+.message.assistant .bubble pre{background:#171717;border:1px solid #ffffff1b;border-radius:12px;padding:14px;color:#ececec}
+.message-actions{gap:5px}
+.message-actions button{background:transparent;border:0;color:#a3a3a3;border-radius:7px}
+.message-actions button:hover{background:#ffffff12;color:#ececec}
+.composerwrap{position:sticky;bottom:0;z-index:3;width:min(768px,100%);padding:12px 0 8px;margin:0 auto;background:linear-gradient(transparent,#212121 14%);backdrop-filter:none}
+.composer{border:1px solid #ffffff20;background:#2f2f2f;border-radius:26px;padding:10px 12px 9px;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;transition:border-color .15s}
+.composer:focus-within{border-color:#ffffff3d;box-shadow:none}
+.composer textarea{min-height:42px;max-height:180px;padding:8px 5px;color:#ececec;font-size:15px;line-height:1.5}
+.composer textarea::placeholder{color:#a3a3a3}
+.composerbar{gap:7px}
+.toolbtn{width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:#d4d4d4}
+.toolbtn:hover{background:#ffffff16;border:0}
+.toolbtn.on{background:#505050;color:white;border:0}
+.send{width:35px;height:35px;border-radius:50%;background:#ececec;color:#171717;box-shadow:none;font-size:19px;transition:background .15s}
+.send:hover{background:#fff;transform:none;filter:none}
+.composerhint{font-size:10px;color:#a3a3a3}
+.fineprint{text-align:center;font-size:10px;color:#a3a3a3;margin-top:10px}
+.toast{background:#2f2f2f;border:1px solid #ffffff20;box-shadow:0 8px 30px #0005}
+.authmodal{background:#0009;backdrop-filter:blur(8px)}
+.authcard{background:#2f2f2f;border:1px solid #ffffff20;box-shadow:0 20px 60px #0006;border-radius:20px}
+.authcard input{background:#212121;border:1px solid #ffffff25}
+.authcard .newchat{background:#ececec;color:#171717;justify-content:center}
+.authswitch{color:#d4d4d4}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid #d4d4d4;outline-offset:3px}
+@media(min-width:1000px){.content{padding-top:22px}.hero{margin-bottom:30px}}
+@media(max-width:720px){
+ .app{grid-template-columns:1fr}
+ .sidebar{height:100dvh;position:fixed;inset:0 auto 0 0;width:min(280px,86vw);transform:translateX(-105%);z-index:8;background:#171717;padding:14px 10px;box-shadow:none}
+ .sidebar.open{transform:translateX(0);box-shadow:20px 0 70px #0008}
+ .topbar{height:56px;padding:0 10px}
+ .content{padding:12px 13px 10px}
+ .hero{margin:auto auto 22px;padding:0 8px}
+ .hero h1{font-size:29px;letter-spacing:-.6px}
+ .hero p{font-size:13px}
+ .suggestions{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+ .suggestion{min-height:106px;padding:12px;border-radius:13px}
+ .suggestion strong{font-size:12px}
+ .suggestion small{font-size:10px}
+ .chat{gap:22px}
+ .message{font-size:14px;line-height:1.7}
+ .message.user .bubble{max-width:90%;padding:10px 14px}
+ .composerwrap{padding:10px 0 5px}
+ .composer{border-radius:23px;padding:8px 10px}
+ .composer textarea{min-height:40px;font-size:14px}
+ .composerhint{display:none}
+ .topactions{gap:1px}
+ .topactions .ghost{padding:7px 8px;font-size:11px}
+ .modelpill{font-size:13px;padding:7px 5px}
+ .profile{margin-top:auto}
+}
+@media(max-width:380px){.topactions #account{display:none}.suggestion{padding:10px}.suggestion small{font-size:9px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
-<div class="navlabel">WORKSPACE</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button></nav>
+<div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button></nav>
 
 <div class="navlabel">RECENT CHATS</div><div class="history" id="history"><button>No conversations yet</button></div>
 <div class="profile"><div class="avatar">Z</div><div><strong style="font-size:12px">ZIRRO Workspace</strong><small>Free access · Provider limits apply</small></div></div></aside>
 <main class="main"><header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="ghost mobilemenu" id="menu">☰</button><div class="modelpill"><span class="dot"></span><span id="modelName">ZIRRO Free AI</span><span style="color:#7d849d">⌄</span></div></div><div class="topactions"><button class="ghost" id="account">Sign in</button><button class="ghost" id="theme">◐ Theme</button><button class="ghost" id="clear">Clear</button></div></header>
-<section class="content"><div class="hero" id="hero"><div class="orb"></div><div class="eyebrow">MEET YOUR NEW CREATIVE PARTNER</div><h1>Ideas become <span>extraordinary.</span></h1><p>Think bigger. Build faster. Create anything. Your all-in-one AI workspace is ready when you are.</p></div>
+<section class="content"><div class="hero" id="hero"><div class="orb"></div><div class="eyebrow">ZIRRO AI</div><h1>What can I help with?</h1><p>Ask anything, explore an idea, or get help with your next project.</p></div>
 <div class="featurebar" id="featurebar"><span>✦ Smart conversations</span><span>⌘ Code & debugging</span><span>▧ Image understanding</span><span>◈ Writing & research</span></div>
 <div class="suggestions" id="suggestions"><button class="suggestion" data-prompt="Help me build a beautiful modern website. Give me a plan and starter code."><div class="sicon">⌘</div><strong>Build something amazing</strong><small>Turn an idea into a website or app</small></button><button class="suggestion" data-prompt="Write a compelling, polished piece of content for my idea. Ask me what you need to know."><div class="sicon">✎</div><strong>Write with clarity</strong><small>Ideas, stories, emails and content</small></button><button class="suggestion" data-prompt="Explain a difficult topic clearly, with examples and a practical step-by-step guide."><div class="sicon">✧</div><strong>Learn anything</strong><small>Clear explanations, examples and plans</small></button><button class="suggestion" data-prompt="Help me research this topic, compare options, and separate known facts from uncertainty: "><div class="sicon">◎</div><strong>Explore a question</strong><small>Analyze options and organize your thinking</small></button></div>
 <div class="chat" id="chat" aria-live="polite"></div>
-<div class="composerwrap"><div class="composer"><textarea id="prompt" placeholder="Message ZIRRO… ask anything, build anything" rows="2"></textarea><div class="composerbar"><button class="toolbtn" id="attach" title="Attach an image or text document">＋</button><input type="file" id="files" class="hidden" accept="image/*,.txt,.md,.csv,.json,.pdf" multiple><button class="toolbtn" id="voice" title="Voice input">🎙</button><button class="toolbtn" id="webSearch" title="Toggle live web search">🌐</button><span class="composerhint" id="filehint">AI can make mistakes. Review important information.</span><button class="send" id="send" title="Send message">↑</button></div></div><div class="fineprint">ZIRRO AI · Free model access may have rate limits · Your own API key stays in this tab only; provider usage may cost money</div></div>
+<div class="composerwrap"><div class="composer"><textarea id="prompt" placeholder="Message ZIRRO… ask anything, build anything" rows="2"></textarea><div class="composerbar"><button class="toolbtn" id="attach" title="Attach an image or text document">＋</button><input type="file" id="files" class="hidden" accept="image/*,.txt,.md,.csv,.json,.pdf" multiple><button class="toolbtn" id="voice" title="Voice input">🎙</button><button class="toolbtn" id="webSearch" title="Toggle live web search">🌐</button><span class="composerhint" id="filehint">AI can make mistakes. Review important information.</span><button class="send" id="send" title="Send message">↑</button></div></div><div class="fineprint">ZIRRO can make mistakes. Check important information.</div></div>
 </section></main></div><div id="toast" class="toast hidden"></div><div id="authModal" class="authmodal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle"><form id="authForm" class="authcard"><button type="button" id="authClose" class="authclose" aria-label="Close">×</button><div class="eyebrow">YOUR PERSONAL WORKSPACE</div><h2 id="authTitle">Welcome to ZIRRO</h2><p id="authDescription">Sign in to sync your conversations across devices.</p><label for="authEmail">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"><button id="authSubmit" class="newchat" type="submit">Sign in</button><button id="authSwitch" class="authswitch" type="button">New here? Create an account</button><button id="authSignOut" class="authswitch hidden" type="button">Sign out</button><small id="authNote">Email confirmation may be required depending on your Supabase settings.</small></form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
 const $=s=>document.querySelector(s),chat=$('#chat'),promptBox=$('#prompt');const selectedProvider='openrouter';let mode='chat',busy=false,webSearchEnabled=false,attached=[],conversations=JSON.parse(localStorage.getItem('zirro_chats')||'[]'),current=[];
