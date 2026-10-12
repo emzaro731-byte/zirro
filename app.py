@@ -294,15 +294,11 @@ def chat():
     body = request.get_json(silent=True) or {}
     provider = str(body.get("provider", "openrouter")).lower()
     providers = {
-        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"OpenRouter"},
-        "openai": {"env":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":os.getenv("OPENAI_MODEL","gpt-4o-mini"),"name":"ChatGPT / OpenAI"},
-        "grok": {"env":"XAI_API_KEY","url":"https://api.x.ai/v1/chat/completions","model":os.getenv("XAI_MODEL","grok-3-mini"),"name":"Grok / xAI"},
-        "gemini": {"env":"GEMINI_API_KEY","url":"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions","model":os.getenv("GEMINI_MODEL","gemini-2.5-flash"),"name":"Google Gemini"},
-        "perplexity": {"env":"PERPLEXITY_API_KEY","url":"https://api.perplexity.ai/chat/completions","model":os.getenv("PERPLEXITY_MODEL","sonar"),"name":"Perplexity"}
+        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"ZIRRO AI"}
     }
     config = providers.get(provider)
     if not config:
-        return jsonify({"error":"Unknown provider. Choose OpenRouter, ChatGPT/OpenAI, Grok, Gemini, or Perplexity."}), 400
+        return jsonify({"error":"This provider has been removed from ZIRRO AI. Please use the configured ZIRRO AI engine."}), 400
     # Per-user API keys are accepted for this request only; they are not stored.
     supplied_key = body.get("api_key", "")
     if supplied_key is not None and not isinstance(supplied_key, str):
