@@ -544,7 +544,7 @@ body.navy-mode .main{background:rgba(3,10,20,.12)!important}
 </style></head><body><div class="app">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="logo">Z</div><div><strong>ZIRRO</strong><small>INTELLIGENCE, AMPLIFIED</small></div></div>
 <button class="newchat" id="newChat">＋ &nbsp; New conversation</button>
-<div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button><button data-mode="security"><span class="ico">⌁</span> Security Lab</button><button data-mode="video"><span class="ico">▶</span> Video Studio</button><button data-mode="music"><span class="ico">♫</span> Music Studio</button><button data-mode="providers"><span class="ico">⇄</span> Provider API Console</button></nav>
+<div class="navlabel">YOUR TOOLS</div><nav class="nav"><button class="active" data-mode="chat"><span class="ico">✧</span> AI Assistant</button><button data-mode="write"><span class="ico">✎</span> AI Writer</button><button data-mode="code"><span class="ico">⌘</span> Code Studio</button><button data-mode="research"><span class="ico">◎</span> Research Lab</button><button data-mode="image"><span class="ico">▧</span> Image Studio</button><button data-mode="documents"><span class="ico">▤</span> Documents</button><button data-mode="security"><span class="ico">⌁</span> Security Lab</button><button data-mode="video"><span class="ico">▶</span> Video Studio</button><button data-mode="music"><span class="ico">♫</span> Music Studio</button></nav>
 
 <div class="navlabel">RECENT CHATS</div><div class="history" id="history"><button>No conversations yet</button></div>
 <div class="profile"><div class="avatar">Z</div><div><strong style="font-size:12px">ZIRRO Workspace</strong><small>Free access · Provider limits apply</small></div></div></aside><div class="sidebar-backdrop hidden" id="sidebarBackdrop" aria-hidden="true"></div>
@@ -578,15 +578,6 @@ body.navy-mode .main{background:rgba(3,10,20,.12)!important}
   <div class="media-options"><label>Length<select id="musicDuration"><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></label></div>
   <button id="generateMusic" class="media-primary">♫ Generate music</button><div id="musicStatus" class="media-status" aria-live="polite">Ready. Describe a genre, mood, instruments, and tempo.</div><div id="musicResult" class="media-result"></div>
 </div>
-<div class="media-studio hidden" id="providerPanel">
-  <div class="media-head"><div class="media-kicker">SECURE SERVER-SIDE CONNECTORS / SUPABASE</div><h2>Provider API Console</h2><p>Send requests through the ZIRRO backend to OpenRouter, fal.ai, or Kie AI. Keep API keys in server-side environment settings and use each provider's current endpoint and request schema.</p></div>
-  <div class="media-options"><label>Provider<select id="proxyProvider"><option value="fal">fal.ai</option><option value="kie">Kie AI</option></select></label><label>HTTP method<select id="proxyMethod"><option value="POST">POST</option><option value="GET">GET</option></select></label></div>
-  <label for="proxyPath">Provider endpoint path</label><input id="proxyPath" class="media-input" style="min-height:0" value="/fal-ai/flux/dev" placeholder="/provider/endpoint">
-  <label for="proxyBody">JSON request body (POST only)</label><textarea id="proxyBody" class="media-input" rows="7" spellcheck="false">{ "prompt": "A cinematic futuristic city at sunset" }</textarea>
-  <button id="sendProxy" class="media-primary">⇄ Send provider request</button><div id="proxyStatus" class="media-status" aria-live="polite">Ready. Choose a provider and enter its supported endpoint.</div>
-  <pre id="proxyOutput" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;padding:14px;border:1px solid var(--line);border-radius:12px;background:#080a11;color:#ececec"></pre>
-</div>
-
 <div class="suggestions" id="suggestions"><button class="suggestion" data-prompt="Help me build a beautiful modern website. Give me a plan and starter code."><div class="sicon">⌘</div><strong>Build something amazing</strong><small>Turn an idea into a website or app</small></button><button class="suggestion" data-prompt="Write a compelling, polished piece of content for my idea. Ask me what you need to know."><div class="sicon">✎</div><strong>Write with clarity</strong><small>Ideas, stories, emails and content</small></button><button class="suggestion" data-prompt="Explain a difficult topic clearly, with examples and a practical step-by-step guide."><div class="sicon">✧</div><strong>Learn anything</strong><small>Clear explanations, examples and plans</small></button><button class="suggestion" data-prompt="Help me research this topic, compare options, and separate known facts from uncertainty: "><div class="sicon">◎</div><strong>Explore a question</strong><small>Analyze options and organize your thinking</small></button></div>
 <div class="chat" id="chat" aria-live="polite"></div>
 <div class="composerwrap"><div class="composer"><textarea id="prompt" placeholder="Message ZIRRO… ask anything, build anything" rows="2"></textarea><div class="composerbar"><button class="toolbtn" id="attach" title="Attach an image or text document">＋</button><input type="file" id="files" class="hidden" accept="image/*,video/*,.txt,.md,.csv,.json,.pdf,.html,.css,.js,.py,.xml,.yaml,.yml,.log,.ts,.jsx,.tsx,.dart,.sql,.sh,.toml,.ini,.env" multiple><button class="toolbtn" id="voice" title="Voice input">🎙</button><button class="toolbtn" id="webSearch" title="Toggle live web search">🌐</button><span class="composerhint" id="filehint">AI can make mistakes. Review important information.</span><button class="send" id="send" title="Send message">↑</button></div></div><div class="fineprint">ZIRRO can make mistakes. Check important information.</div></div>
@@ -603,7 +594,7 @@ sidebarBackdrop?.addEventListener('click',closeSidebar);
 sidebar?.querySelectorAll('.nav button, #newChat, .history button').forEach(b=>b.addEventListener('click',()=>{if(window.matchMedia('(max-width: 720px)').matches)closeSidebar()}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar()});
 
-const modes={chat:['ZIRRO Free AI','Message ZIRRO… ask anything, build anything'],write:['AI Writer','What would you like to write today?'],code:['Code Studio','Describe the code, app, or bug you want help with…'],research:['Research Lab','What would you like to investigate?'],image:['Image Studio','Describe an image or upload one for AI analysis…'],documents:['Document Intelligence','Upload a document or ask a question…'],security:['ZIRRO Security Lab','Ask about defensive security, hardening, or authorized testing…'],video:['Video Studio','Describe the video you want to create…'],music:['Music Studio','Describe the music you want to create…'],providers:['Provider API Console','Send requests to OpenRouter, fal.ai, or Kie AI through the backend']};
+const modes={chat:['ZIRRO Free AI','Message ZIRRO… ask anything, build anything'],write:['AI Writer','What would you like to write today?'],code:['Code Studio','Describe the code, app, or bug you want help with…'],research:['Research Lab','What would you like to investigate?'],image:['Image Studio','Describe an image or upload one for AI analysis…'],documents:['Document Intelligence','Upload a document or ask a question…'],security:['ZIRRO Security Lab','Ask about defensive security, hardening, or authorized testing…'],video:['Video Studio','Describe the video you want to create…'],music:['Music Studio','Describe the music you want to create…']};
 function toast(s){$('#toast').textContent=s;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),3000)}
 
 let zSupabase=null,zUser=null,authMode='signin',cloudSyncBusy=false;
@@ -652,19 +643,16 @@ setMode=function(m){
   if(!modes[m])m='chat';
   baseSetMode(m);
   const studio=m==='video'||m==='music';
-  const providerConsole=m==='providers';
   $('#videoPanel').classList.toggle('hidden',m!=='video');
   $('#musicPanel').classList.toggle('hidden',m!=='music');
-  $('#providerPanel').classList.toggle('hidden',m!=='providers');
   $('#securityPanel').classList.toggle('hidden',m!=='security');
-  $('#hero').classList.toggle('hidden',studio||providerConsole);
-  $('#suggestions').classList.toggle('hidden',studio||providerConsole||m==='security');
-  $('#featurebar').classList.toggle('hidden',studio||providerConsole||m==='security');
-  $('#chat').classList.toggle('hidden',studio||providerConsole);
-  $('.composerwrap').classList.toggle('hidden',studio||providerConsole);
+  $('#hero').classList.toggle('hidden',studio);
+  $('#suggestions').classList.toggle('hidden',studio||m==='security');
+  $('#featurebar').classList.toggle('hidden',studio||m==='security');
+  $('#chat').classList.toggle('hidden',studio);
+  $('.composerwrap').classList.toggle('hidden',studio);
   if(m==='video'){$('#modelName').textContent='Video Studio · Kie AI';}
   if(m==='music'){$('#modelName').textContent='Music Studio · Kie AI / Suno';}
-  if(m==='providers'){$('#modelName').textContent='Provider API Console · Supabase';}
   if(studio){$('#sidebar').classList.remove('open');}
 };
 function generationClientId(){
@@ -702,18 +690,6 @@ $('#generateVideo').onclick=async()=>{
     await pollVideo(data.job_id);
   }catch(e){status.textContent='⚠ '+e.message;toast('Video generation did not finish')}
   finally{btn.disabled=false}
-};
-const proxyDefaults={fal:{path:'/fal-ai/flux/dev',body:{prompt:'A cinematic futuristic city at sunset'}},kie:{path:'/api/v1/jobs/createTask',body:{model:'',input:{prompt:'Describe your generation'}}},openrouter:{path:'/api/v1/chat/completions',body:{model:'openrouter/free',messages:[{role:'user',content:'Say hello'}]}}};
-function updateProxyDefaults(){const p=$('#proxyProvider').value,d=proxyDefaults[p];$('#proxyPath').value=d.path;$('#proxyBody').value=JSON.stringify(d.body,null,2);$('#proxyMethod').value='POST';}
-$('#proxyProvider').onchange=updateProxyDefaults;
-$('#sendProxy').onclick=async()=>{
- const provider=$('#proxyProvider').value,path=$('#proxyPath').value.trim(),method=$('#proxyMethod').value,status=$('#proxyStatus'),output=$('#proxyOutput'),button=$('#sendProxy');
- let body={};if(method==='POST'){try{body=JSON.parse($('#proxyBody').value||'{}')}catch(e){status.textContent='⚠ Request body must be valid JSON.';return}}
- if(!path.startsWith('/')){status.textContent='⚠ Endpoint path must begin with /. Do not paste a full URL.';return}
- button.disabled=true;status.textContent='Sending request through Supabase…';output.textContent='';
- try{const res=await fetch('/api/provider-proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,path,method,body})});const data=await res.json();output.textContent=JSON.stringify(data,null,2);if(!res.ok||data.ok===false)throw new Error(data.error||'Provider request failed.');status.textContent='Request completed. Check the response below for the provider result or generation job ID.'}
- catch(e){status.textContent='⚠ '+e.message+' Ensure the Supabase Edge Function is deployed and its secrets are configured.'}
- finally{button.disabled=false}
 };
 $('#generateMusic').onclick=async()=>{
   const prompt=$('#musicPrompt').value.trim();if(!prompt){toast('Describe the music first');return}
