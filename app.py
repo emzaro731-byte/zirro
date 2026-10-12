@@ -1,5 +1,5 @@
 import base64, io, json, os, urllib.request, urllib.error
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
@@ -50,6 +50,10 @@ def health():
         "groq_fallback_configured": bool(os.getenv("GROQ_API_KEY")),
         "chat_failover": True,
         "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "video_generation_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "video_model": os.getenv("OPENROUTER_VIDEO_MODEL", "google/veo-3.1"),
+        "music_generation_configured": bool(os.getenv("REPLICATE_API_TOKEN")),
+        "music_provider": "Replicate MusicGen",
         "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image"),
         "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
         "embeddings_configured": bool(os.getenv("OPENROUTER_API_KEY")),
@@ -291,6 +295,186 @@ def generate_image():
     except Exception:
         app.logger.exception("Image generation failed")
         return jsonify({"error": "Could not reach the image provider. Please try again shortly."}), 502
+
+
+
+def _provider_error(exc, fallback):
+    try:
+        data = json.loads(exc.read().decode())
+        error = data.get("error", data)
+        if isinstance(error, dict):
+            return str(error.get("message") or error.get("detail") or fallback)[:500]
+        return str(error)[:500]
+    except Exception:
+        return fallback
+
+
+@app.get("/api/video/models")
+def video_models():
+    token = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "Configure OPENROUTER_API_KEY in Render to list available video models."}), 503
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/models",
+            headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req, timeout=25) as response:
+            data = json.loads(response.read().decode())
+        models = []
+        for item in data.get("data", [])[:100]:
+            models.append({"id": item.get("id"), "name": item.get("name") or item.get("id"),
+                "supported_durations": item.get("supported_durations", []),
+                "supported_resolutions": item.get("supported_resolutions", []),
+                "supported_aspect_ratios": item.get("supported_aspect_ratios", []),
+                "pricing_skus": item.get("pricing_skus", {})})
+        return jsonify({"ok": True, "models": models})
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": "OpenRouter model discovery failed: " + _provider_error(exc, "Provider request failed")}), 502
+    except Exception:
+        app.logger.exception("Video model discovery failed")
+        return jsonify({"ok": False, "error": "Could not load video models right now."}), 502
+
+
+@app.post("/api/generate-video")
+def generate_video():
+    body = request.get_json(silent=True) or {}
+    token = str(body.get("api_key", "")).strip() or os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "Add OPENROUTER_API_KEY in Render Environment. Video generation is not included automatically with a chat key's free quota."}), 503
+    prompt = str(body.get("prompt", "")).strip()
+    if not prompt:
+        return jsonify({"ok": False, "error": "Describe the video you want to create."}), 400
+    if len(prompt) > 4000:
+        return jsonify({"ok": False, "error": "Prompt must be 4,000 characters or fewer."}), 413
+    model = str(body.get("model") or os.getenv("OPENROUTER_VIDEO_MODEL", "google/veo-3.1")).strip()
+    allowed_durations = (4, 5, 6, 8, 10, 12)
+    try:
+        duration = int(body.get("duration", 5))
+    except (TypeError, ValueError):
+        duration = 5
+    if duration not in allowed_durations:
+        return jsonify({"ok": False, "error": "Duration must be one of: 4, 5, 6, 8, 10, or 12 seconds. The selected model may support fewer options."}), 400
+    resolution = str(body.get("resolution", "720p"))
+    aspect_ratio = str(body.get("aspect_ratio", "16:9"))
+    payload = {"model": model, "prompt": prompt, "duration": duration,
+               "resolution": resolution, "aspect_ratio": aspect_ratio,
+               "generate_audio": bool(body.get("generate_audio", True))}
+    try:
+        result = post_json("https://openrouter.ai/api/v1/videos", payload, {
+            "Authorization": "Bearer " + token, "HTTP-Referer": os.getenv("APP_URL", "https://github.com/emzaro731-byte/zirro"),
+            "X-Title": "ZIRRO AI Video Studio"}, timeout=45)
+        job_id = result.get("id") or result.get("job_id")
+        if not job_id:
+            return jsonify({"ok": False, "error": "OpenRouter did not return a video job ID.", "details": result}), 502
+        return jsonify({"ok": True, "job_id": str(job_id), "status": result.get("status", "pending"),
+                        "model": model, "message": "Video job submitted. It may take several minutes and may incur provider charges."}), 202
+    except urllib.error.HTTPError as exc:
+        detail = _provider_error(exc, "Video generation request failed")
+        status = 402 if exc.code == 402 or any(w in detail.lower() for w in ("balance", "credit", "insufficient")) else 502
+        return jsonify({"ok": False, "error": detail, "hint": "Check the selected model's current pricing, your OpenRouter balance, and model-supported duration/resolution."}), status
+    except Exception:
+        app.logger.exception("Video generation request failed")
+        return jsonify({"ok": False, "error": "Could not reach OpenRouter video generation. Try again shortly."}), 502
+
+
+@app.get("/api/video/status/<job_id>")
+def video_status(job_id):
+    if not job_id or len(job_id) > 180 or not all(c.isalnum() or c in "-_." for c in job_id):
+        return jsonify({"ok": False, "error": "Invalid video job ID."}), 400
+    token = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "OPENROUTER_API_KEY is not configured."}), 503
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/" + job_id,
+            headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req, timeout=25) as response:
+            result = json.loads(response.read().decode())
+        urls = result.get("unsigned_urls") or []
+        return jsonify({"ok": True, "job_id": job_id, "status": result.get("status", "unknown"),
+                        "error": result.get("error"), "video_url": urls[0] if urls else None,
+                        "usage": result.get("usage"), "model": result.get("model")})
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read video job status.")}), 502
+    except Exception:
+        app.logger.exception("Video status check failed")
+        return jsonify({"ok": False, "error": "Could not check video status. Try again shortly."}), 502
+
+
+@app.get("/api/video/content/<job_id>")
+def video_content(job_id):
+    if not job_id or len(job_id) > 180 or not all(c.isalnum() or c in "-_." for c in job_id):
+        return jsonify({"ok": False, "error": "Invalid video job ID."}), 400
+    token = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "OPENROUTER_API_KEY is not configured."}), 503
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/videos/" + job_id + "/content?index=0",
+            headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req, timeout=90) as upstream:
+            content = upstream.read()
+            content_type = upstream.headers.get("Content-Type", "video/mp4")
+        return Response(content, mimetype=content_type, headers={"Content-Disposition": 'attachment; filename="zirro-video.mp4"', "Cache-Control": "no-store"})
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": _provider_error(exc, "Video content is not ready yet.")}), 502
+    except Exception:
+        app.logger.exception("Video download failed")
+        return jsonify({"ok": False, "error": "Could not download the generated video."}), 502
+
+
+@app.post("/api/generate-music")
+def generate_music():
+    body = request.get_json(silent=True) or {}
+    token = os.getenv("REPLICATE_API_TOKEN", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "Music generation needs a Replicate API token. Add REPLICATE_API_TOKEN in Render Environment; OpenRouter does not currently provide general text-to-music generation through its standard audio endpoint.", "setup_url": "https://replicate.com/account/api-tokens"}), 503
+    prompt = str(body.get("prompt", "")).strip()
+    if not prompt:
+        return jsonify({"ok": False, "error": "Describe the music you want to create."}), 400
+    if len(prompt) > 2000:
+        return jsonify({"ok": False, "error": "Music prompt must be 2,000 characters or fewer."}), 413
+    try:
+        duration = int(body.get("duration", 8))
+    except (TypeError, ValueError):
+        duration = 8
+    duration = max(5, min(duration, 30))
+    payload = {"input": {"prompt": prompt[:2000], "model_version": "stereo-large",
+                         "output_format": "mp3", "duration": duration}}
+    try:
+        result = post_json("https://api.replicate.com/v1/models/meta/musicgen/predictions", payload,
+            {"Authorization": "Bearer " + token, "Prefer": "wait=1"}, timeout=45)
+        return jsonify({"ok": True, "prediction_id": result.get("id"), "status": result.get("status", "starting"),
+                        "music_url": result.get("output") if isinstance(result.get("output"), str) else (result.get("output") or [None])[0],
+                        "message": "Music generation submitted. Replicate usage is billed by its current model pricing."}), 202
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": _provider_error(exc, "Music generation request failed."),
+                        "hint": "Check your Replicate token, account limits, and current MusicGen model availability."}), 502
+    except Exception:
+        app.logger.exception("Music generation request failed")
+        return jsonify({"ok": False, "error": "Could not reach the music provider right now."}), 502
+
+
+@app.get("/api/music/status/<prediction_id>")
+def music_status(prediction_id):
+    if not prediction_id or len(prediction_id) > 180 or not all(c.isalnum() or c in "-_." for c in prediction_id):
+        return jsonify({"ok": False, "error": "Invalid music prediction ID."}), 400
+    token = os.getenv("REPLICATE_API_TOKEN", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "REPLICATE_API_TOKEN is not configured."}), 503
+    try:
+        req = urllib.request.Request("https://api.replicate.com/v1/predictions/" + prediction_id,
+            headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req, timeout=25) as response:
+            result = json.loads(response.read().decode())
+        output = result.get("output")
+        if isinstance(output, list):
+            output = output[0] if output else None
+        return jsonify({"ok": True, "prediction_id": prediction_id, "status": result.get("status", "unknown"),
+                        "music_url": output if isinstance(output, str) else None, "error": result.get("error")})
+    except urllib.error.HTTPError as exc:
+        return jsonify({"ok": False, "error": _provider_error(exc, "Could not read music job status.")}), 502
+    except Exception:
+        app.logger.exception("Music status check failed")
+        return jsonify({"ok": False, "error": "Could not check music status right now."}), 502
+
 
 @app.post("/api/chat")
 def chat():
