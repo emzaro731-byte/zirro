@@ -259,10 +259,21 @@ def generate_image():
 
 @app.post("/api/chat")
 def chat():
-    key = os.getenv("OPENROUTER_API_KEY")
-    if not key:
-        return jsonify({"error": "Free AI provider is not configured. Add OPENROUTER_API_KEY in your hosting environment variables."}), 503
     body = request.get_json(silent=True) or {}
+    provider = str(body.get("provider", "openrouter")).lower()
+    providers = {
+        "openrouter": {"env":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"name":"OpenRouter"},
+        "openai": {"env":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":os.getenv("OPENAI_MODEL","gpt-4o-mini"),"name":"ChatGPT / OpenAI"},
+        "grok": {"env":"XAI_API_KEY","url":"https://api.x.ai/v1/chat/completions","model":os.getenv("XAI_MODEL","grok-3-mini"),"name":"Grok / xAI"},
+        "gemini": {"env":"GEMINI_API_KEY","url":"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions","model":os.getenv("GEMINI_MODEL","gemini-2.5-flash"),"name":"Google Gemini"},
+        "perplexity": {"env":"PERPLEXITY_API_KEY","url":"https://api.perplexity.ai/chat/completions","model":os.getenv("PERPLEXITY_MODEL","sonar"),"name":"Perplexity"}
+    }
+    config = providers.get(provider)
+    if not config:
+        return jsonify({"error":"Unknown provider. Choose OpenRouter, ChatGPT/OpenAI, Grok, Gemini, or Perplexity."}), 400
+    key = os.getenv(config["env"])
+    if not key:
+        return jsonify({"error":config["name"]+" is not connected yet. Add "+config["env"]+" in your Render Environment settings, then redeploy." ,"provider":provider,"needs_setup":True}), 503
     message = str(body.get("message", "")).strip()
     mode = body.get("mode", "chat")
     attachments = body.get("attachments") or []
@@ -274,9 +285,9 @@ def chat():
     if body.get("web_search") and message:
         results, error = search_web(message)
         if results:
-            system += "\n\nLive web search results retrieved for this request. Use only these sources for current factual claims, and cite URLs exactly as provided. If results do not answer the question, say so.\n" + results
+            system += "\\n\\nLive web search results retrieved for this request. Use only these sources for current factual claims, and cite URLs exactly as provided. If results do not answer the question, say so.\\n" + results
         elif error:
-            system += "\n\n" + error
+            system += "\\n\\n" + error
     messages = [{"role":"system","content":system}]
     history = body.get("history", [])
     for item in history[-MAX_HISTORY:]:
@@ -292,38 +303,40 @@ def chat():
             if isinstance(data, str) and data.startswith("data:image/") and len(data) < 8*1024*1024:
                 parts.append({"type":"image_url","image_url":{"url":data}})
         elif kind == "text" and isinstance(item.get("text"), str):
-            parts.append({"type":"text","text":"Attached file "+str(item.get("name","file"))+":\n"+item["text"][:16000]})
+            parts.append({"type":"text","text":"Attached file "+str(item.get("name","file"))+":\\n"+item["text"][:16000]})
         elif kind == "pdf" and isinstance(item.get("data"), str):
             try:
                 from pypdf import PdfReader
                 raw = item["data"].split(",",1)[-1]
                 pdf = PdfReader(io.BytesIO(base64.b64decode(raw)))
-                extracted = "\n".join((p.extract_text() or "") for p in pdf.pages[:40])
-                parts.append({"type":"text","text":"Extracted PDF text from "+str(item.get("name","document.pdf"))+":\n"+extracted[:24000]})
+                extracted = "\\n".join((p.extract_text() or "") for p in pdf.pages[:40])
+                parts.append({"type":"text","text":"Extracted PDF text from "+str(item.get("name","document.pdf"))+":\\n"+extracted[:24000]})
             except Exception:
                 parts.append({"type":"text","text":"Could not extract readable text from PDF "+str(item.get("name","document.pdf"))+". It may be scanned or protected."})
-    content = parts if any(p["type"] == "image_url" for p in parts) else "\n\n".join(p["text"] for p in parts if p["type"] == "text")
+    content = parts if any(p["type"] == "image_url" for p in parts) else "\\n\\n".join(p["text"] for p in parts if p["type"] == "text")
     messages.append({"role":"user","content":content or message})
-    payload = {"model":os.getenv("OPENROUTER_MODEL","openrouter/free"),"messages":messages,"temperature":0.7}
+    payload = {"model":config["model"],"messages":messages,"temperature":0.7}
+    headers = {"Authorization":"Bearer "+key,"X-Title":"ZIRRO AI"}
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro")
     try:
-        result = post_json("https://openrouter.ai/api/v1/chat/completions", payload, {
-            "Authorization":"Bearer "+key,
-            "HTTP-Referer":os.getenv("APP_URL","https://github.com/emzaro731-byte/zirro"),
-            "X-Title":"ZIRRO AI"
-        }, timeout=100)
+        result = post_json(config["url"], payload, headers, timeout=100)
         answer = result.get("choices",[{}])[0].get("message",{}).get("content","")
         if isinstance(answer,list):
-            answer = "\n".join(p.get("text","") for p in answer if isinstance(p,dict))
-        if not answer: return jsonify({"error":"The AI provider returned an empty response. Try again."}), 502
-        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),
+            answer = "\\n".join(p.get("text","") for p in answer if isinstance(p,dict))
+        if not answer: return jsonify({"error":"The AI provider returned an empty response. Try again.","provider":provider}), 502
+        return jsonify({"reply":answer,"model":result.get("model",payload["model"]),"provider":provider,
                         "web_search_used":bool(body.get("web_search") and os.getenv("TAVILY_API_KEY"))})
     except urllib.error.HTTPError as exc:
-        try: detail=json.loads(exc.read().decode()).get("error",{}).get("message","Provider request failed")
+        try:
+            err_data=json.loads(exc.read().decode())
+            err_obj=err_data.get("error",{})
+            detail=err_obj.get("message","Provider request failed") if isinstance(err_obj,dict) else str(err_obj)
         except Exception: detail="Provider request failed"
-        return jsonify({"error":"AI provider error: "+str(detail)[:350]}), 502
+        return jsonify({"error":config["name"]+" error: "+str(detail)[:350],"provider":provider}), 502
     except Exception:
-        app.logger.exception("AI request failed")
-        return jsonify({"error":"Could not reach the AI provider. Please try again shortly."}), 502
+        app.logger.exception("%s request failed", config["name"])
+        return jsonify({"error":"Could not reach "+config["name"]+". Please try again shortly.","provider":provider}), 502
 
 @app.errorhandler(413)
 def too_large(_):
