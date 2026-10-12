@@ -3,6 +3,7 @@ services:
     name: zirro-ai
     runtime: python
     plan: free
+    autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     healthCheckPath: /api/health
