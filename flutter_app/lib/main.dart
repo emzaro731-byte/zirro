@@ -119,18 +119,73 @@ class _ChatHomeState extends State<ChatHome> {
     super.dispose();
   }
 
-  void _send() {
+  bool _sending = false;
+
+  Future<void> _send() async {
     final text = _composer.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
+
+    final history = _messages
+        .map((m) => <String, String>{
+              'role': m.fromUser ? 'user' : 'assistant',
+              'content': m.text,
+            })
+        .toList();
+
     setState(() {
+      _sending = true;
       _messages.add(ChatMessage(text, fromUser: true));
-      _messages.add(const ChatMessage(
-        'This is a Liquid Glass interface preview. The AI engine is not '
-        'connected yet, so your message has not been sent to an AI service.',
-        fromUser: false,
-      ));
+      _messages.add(const ChatMessage('ZIRRO is thinking…', fromUser: false));
       _composer.clear();
     });
+    _scrollToBottom();
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://zirro.onrender.com/api/chat'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'provider': 'openrouter',
+              'mode': 'chat',
+              'message': text,
+              'history': history,
+            }),
+          )
+          .timeout(const Duration(seconds: 110));
+
+      final decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception((data['error'] ?? 'AI request failed (HTTP ${response.statusCode}).').toString());
+      }
+      final reply = (data['reply'] ?? '').toString().trim();
+      if (reply.isEmpty) throw Exception('The AI service returned an empty response.');
+
+      if (!mounted) return;
+      setState(() {
+        _messages.removeLast();
+        _messages.add(ChatMessage(reply, fromUser: false));
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString().replaceFirst('Exception: ', '');
+      setState(() {
+        _messages.removeLast();
+        _messages.add(ChatMessage(
+          'Could not get an AI response: $message\n\nCheck that OPENROUTER_API_KEY is configured in Render and that the ZIRRO service is awake.',
+          fromUser: false,
+        ));
+      });
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
         _scroll.animateTo(
@@ -365,7 +420,7 @@ class _ChatHomeState extends State<ChatHome> {
                   Icon(Icons.shield_outlined, color: _cyan, size: 14),
                   SizedBox(width: 7),
                   Text(
-                    'LOCAL PREVIEW  ·  NO ACCOUNTS CONNECTED',
+                    'CONNECTED TO ZIRRO AI  ·  OPENROUTER',
                     style: TextStyle(
                       color: _muted,
                       fontSize: 9,
@@ -477,11 +532,11 @@ class _ChatHomeState extends State<ChatHome> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 IconButton(
-                  tooltip: 'Add attachment (preview only)',
+                  tooltip: 'Add attachment',
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Attachments are not available in this preview.'),
+                        content: Text('Attachments are not supported in this version yet.'),
                       ),
                     );
                   },
@@ -522,10 +577,11 @@ class _ChatHomeState extends State<ChatHome> {
                     ],
                   ),
                   child: IconButton(
-                    onPressed: _send,
+                    onPressed: _sending ? null : _send,
                     tooltip: 'Send message',
-                    icon: const Icon(Icons.arrow_upward_rounded,
-                        color: Colors.white, size: 21),
+                    icon: _sending
+                        ? const SizedBox(width: 19, height: 19, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 21),
                   ),
                 ),
               ],
@@ -533,7 +589,7 @@ class _ChatHomeState extends State<ChatHome> {
           ),
           const SizedBox(height: 9),
           const Text(
-            'ZIRRO PREVIEW  ·  AI RESPONSES ARE NOT ENABLED',
+            'ZIRRO AI  ·  POWERED BY OPENROUTER',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color(0xFF68758E),
