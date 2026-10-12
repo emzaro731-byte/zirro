@@ -53,6 +53,68 @@ def health():
         "embedding_model": os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
         "pdf_support": True})
 
+
+PLUGIN_CATALOG = [
+    {"id": "openrouter", "name": "OpenRouter AI", "type": "connector", "feature": "chat", "env": "OPENROUTER_API_KEY"},
+    {"id": "tavily", "name": "Tavily Web Search", "type": "connector", "feature": "search", "env": "TAVILY_API_KEY"},
+    {"id": "imagegen", "name": "Image Generation", "type": "plugin", "feature": "image", "env": "OPENROUTER_API_KEY"},
+    {"id": "documents", "name": "Document Intelligence", "type": "plugin", "feature": "documents", "env": None},
+    {"id": "voice", "name": "Voice Tools", "type": "plugin", "feature": "browser", "env": None},
+    {"id": "embeddings", "name": "Semantic Search", "type": "connector", "feature": "embeddings", "env": "OPENROUTER_API_KEY"},
+    {"id": "custom-api", "name": "Custom API Endpoint", "type": "connector", "feature": "planned", "env": None},
+    {"id": "prompt-library", "name": "Prompt Library", "type": "plugin", "feature": "local", "env": None},
+]
+
+@app.get("/api/plugins")
+def plugins():
+    """Return safe plugin metadata and configuration state; never expose secret values."""
+    health = {
+        "openrouter": bool(os.getenv("OPENROUTER_API_KEY")),
+        "tavily": bool(os.getenv("TAVILY_API_KEY")),
+        "imagegen": bool(os.getenv("OPENROUTER_API_KEY")),
+        "documents": True,
+        "voice": True,
+        "embeddings": bool(os.getenv("OPENROUTER_API_KEY")),
+        "custom-api": False,
+        "prompt-library": True,
+    }
+    items = []
+    for plugin in PLUGIN_CATALOG:
+        item = dict(plugin)
+        item.pop("env", None)
+        item["configured"] = health.get(plugin["id"], False)
+        item["status"] = (
+            "configured" if item["configured"] and plugin["feature"] not in ("planned",)
+            else "needs_setup" if plugin["env"] and not item["configured"]
+            else "preview" if plugin["feature"] == "planned"
+            else "available"
+        )
+        items.append(item)
+    return jsonify({"ok": True, "plugins": items})
+
+@app.post("/api/search")
+def api_search():
+    """Run an actual Tavily search using a server-side secret."""
+    body = request.get_json(silent=True) or {}
+    query = str(body.get("query", "")).strip()
+    if not query:
+        return jsonify({"error": "Enter a search query."}), 400
+    if len(query) > 400:
+        return jsonify({"error": "Search query must be 400 characters or fewer."}), 413
+    results, error = search_web(query)
+    if error:
+        status = 503 if not os.getenv("TAVILY_API_KEY") else 502
+        return jsonify({"ok": False, "error": error}), status
+    items = []
+    for line in (results or "").splitlines():
+        if line.startswith("- "):
+            items.append({"title": line[2:].strip()})
+        elif line.strip().startswith("URL: ") and items:
+            items[-1]["url"] = line.strip()[5:]
+        elif line.strip().startswith("Summary: ") and items:
+            items[-1]["summary"] = line.strip()[9:]
+    return jsonify({"ok": True, "query": query, "results": items})
+
 @app.post("/api/embeddings")
 def embeddings():
     """Create text embeddings through OpenRouter for semantic search / retrieval."""
