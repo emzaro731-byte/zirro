@@ -409,7 +409,7 @@ def generate_image():
                         if image_url:
                             break
             if isinstance(image_url, str) and image_url.startswith(("data:image/", "https://", "http://")):
-                return jsonify({"ok": True, "image": image_url, "model": result.get("model", model), "provider": "OpenRouter", "fallback_used": False})
+                return jsonify({"ok": True, "image": image_url, "model": result.get("model", model), "provider": "OpenRouter", "fallback_used": False, "quota": quota})
             openrouter_error = "OpenRouter did not return an image. " + str(message.get("content", ""))[:180]
         except urllib.error.HTTPError as exc:
             openrouter_error = "OpenRouter error: " + _provider_error(exc, "Image generation request failed.")
@@ -426,8 +426,8 @@ def generate_image():
         })
         result = _kie_wait_for_result(task_id, attempts=40, delay=2)
         if result["status"] == "success" and result["urls"]:
-            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "fallback_used": True, "task_id": task_id})
-        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "fallback_used": True}), 202
+            return jsonify({"ok": True, "image": result["urls"][0], "model": "gpt-image-2-text-to-image", "provider": "Kie AI", "fallback_used": True, "task_id": task_id, "quota": quota})
+        return jsonify({"ok": False, "error": "Kie AI accepted the image job but it is still processing.", "task_id": task_id, "provider": "Kie AI", "fallback_used": True, "quota": quota}), 202
     except urllib.error.HTTPError as exc:
         return jsonify({"error": openrouter_error, "fallback_error": _provider_error(exc, "Kie AI image generation failed.")}), 502
     except Exception as exc:
@@ -488,7 +488,7 @@ def generate_video():
     try:
         task_id = _kie_create_task("runway", task_input, timeout=60)
         return jsonify({"ok": True, "job_id": task_id, "status": "waiting", "model": "runway",
-                        "provider": "Kie AI", "message": "Kie AI video job submitted. Generation may take several minutes and may use credits."}), 202
+                        "provider": "Kie AI", "message": "Video submitted. " + str(quota["remaining"]) + " video generations left today.", "quota": quota}), 202
     except urllib.error.HTTPError as exc:
         detail = _provider_error(exc, "Kie AI video generation failed.")
         status = 402 if exc.code == 402 or any(w in detail.lower() for w in ("balance", "credit", "insufficient")) else 502
@@ -538,7 +538,7 @@ def generate_music():
     try:
         task_id = _kie_create_task("ai-music-api/generate", task_input, timeout=60)
         return jsonify({"ok": True, "prediction_id": task_id, "status": "waiting",
-                        "message": "Suno music job submitted through Kie AI. It may use credits."}), 202
+                        "message": "Music submitted through Kie AI / Suno. " + str(quota["remaining"]) + " music generations left today.", "quota": quota}), 202
     except urllib.error.HTTPError as exc:
         return jsonify({"ok": False, "error": _provider_error(exc, "Kie AI music generation failed."),
                         "hint": "Check KIE_AI_API_KEY, Kie AI credits, and Suno model availability."}), 502
