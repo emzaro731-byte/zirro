@@ -49,10 +49,10 @@ def health():
         "provider_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "groq_configured": bool(os.getenv("GROQ_API_KEY")),
         "chat_failover": False,
-        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY")),
-        "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY")),
+        "image_generation_configured": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
+        "video_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "video_model": "runway",
-        "music_generation_configured": bool(os.getenv("KIE_AI_API_KEY")),
+        "music_generation_configured": bool(os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "music_provider": "Kie AI / Suno",
         "supabase_quota_storage_configured": bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
         "image_model": os.getenv("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image") + " (Kie AI fallback enabled)",
@@ -87,7 +87,7 @@ def plugins():
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "perplexity": bool(os.getenv("PERPLEXITY_API_KEY")),
         "tavily": bool(os.getenv("TAVILY_API_KEY")),
-        "imagegen": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY")),
+        "imagegen": bool(os.getenv("OPENROUTER_API_KEY") or os.getenv("KIE_AI_API_KEY") or _kie_proxy_configured()),
         "documents": True,
         "voice": True,
         "embeddings": bool(os.getenv("OPENROUTER_API_KEY")),
@@ -301,24 +301,45 @@ def _provider_error(exc, fallback):
         return fallback
 
 
+def _kie_proxy_configured():
+    return bool(os.getenv("SUPABASE_URL", "").strip() and
+                os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip())
+
+
 def _kie_key():
+    # The key may live in Supabase Edge Function secrets instead of Render.
     return os.getenv("KIE_AI_API_KEY", "").strip()
 
 
 def _kie_request(path, payload=None, timeout=45):
-    token = _kie_key()
-    if not token:
-        raise RuntimeError("Add KIE_AI_API_KEY to Render Environment, then redeploy.")
-    url = "https://api.kie.ai" + path
-    headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
-    if payload is None:
-        req = urllib.request.Request(url, headers=headers, method="GET")
+    method = "GET" if payload is None else "POST"
+    if _kie_proxy_configured():
+        # Provider credentials stay in Supabase; Render only forwards a scoped request.
+        supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+        proxy_token = os.getenv("ZIRRO_SUPABASE_PROXY_TOKEN", "").strip()
+        result = post_json(
+            supabase_url + "/functions/v1/zirro-provider-proxy",
+            {"provider": "kie", "method": method, "path": path,
+             "body": payload if payload is not None else {}},
+            {"x-zirro-proxy-token": proxy_token},
+            timeout=timeout
+        )
     else:
-        req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        result = json.loads(response.read().decode())
+        token = _kie_key()
+        if not token:
+            raise RuntimeError("Configure SUPABASE_URL and ZIRRO_SUPABASE_PROXY_TOKEN in Render, and set KIE_AI_API_KEY as a Supabase Edge Function secret (or in Render for direct mode).")
+        url = "https://api.kie.ai" + path
+        headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+        if payload is None:
+            req = urllib.request.Request(url, headers=headers, method="GET")
+        else:
+            req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            result = json.loads(response.read().decode())
     if isinstance(result, dict) and result.get("code") not in (None, 0, 200):
         raise RuntimeError(str(result.get("msg") or result.get("message") or "Kie AI request failed")[:400])
+    if not isinstance(result, dict):
+        raise RuntimeError("Kie AI returned an unexpected response.")
     return result
 
 
