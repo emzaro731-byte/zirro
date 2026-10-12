@@ -499,7 +499,7 @@ async function pollVideo(jobId){
     const response=await fetch('/api/video/status/'+encodeURIComponent(jobId));
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.error||'Could not check video status.');
-    status.textContent='Video status: '+data.status+(data.usage?.cost!=null?' · reported cost: </body></html>+data.usage.cost:'');
+    status.textContent='Video status: '+data.status+(data.usage?.cost!=null?' · reported cost: '+String.fromCharCode(36)+data.usage.cost:'');
     if(data.status==='completed'){
       const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src='/api/video/content/'+encodeURIComponent(jobId);result.replaceChildren(video);
       const link=document.createElement('a');link.href=video.src;link.download='zirro-video.mp4';link.textContent='Download video';result.append(link);
